@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\Team26.uproject" />
+    <Filter Include="Source">
+      <UniqueIdentifier>{F31BBDD1-B3E8-3BCC-9652-680E16935819}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\Team26.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\Team26Editor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <Filter Include="Config">
+      <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Source\Team26">
+      <UniqueIdentifier>{F8791DF0-E0AF-3BCD-AE33-06370D4A0AA3}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\Team26\Team26.Build.cs">
+      <Filter>Source\Team26</Filter>
+    </None>
+    <ClCompile Include="..\..\Source\Team26\Team26.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26GameMode.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26GameMode.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadCar.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadCar.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadWheelFront.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadWheelFront.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadWheelRear.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26OffroadWheelRear.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26Pawn.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26Pawn.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26PlayerController.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26PlayerController.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsCar.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsCar.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsWheelFront.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsWheelFront.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsWheelRear.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26SportsWheelRear.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26UI.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26UI.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26WheelFront.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26WheelFront.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26WheelRear.cpp">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Source\Team26\Team26WheelRear.h">
+      <Filter>Source\Team26</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

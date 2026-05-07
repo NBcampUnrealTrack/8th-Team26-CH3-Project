@@ -1,0 +1,14 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "c:\\8th-team26-ch3-project\\team26\\source\\team26\\team26.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\x64\\team26editor\\development\\unrealed\\sharedpch.unrealed.project.valapi.cpp20.h.pch",
+        "Includes": [
+            "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\team26\\definitions.team26.h",
+            "c:\\8th-team26-ch3-project\\team26\\source\\team26\\team26.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}

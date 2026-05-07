@@ -1,0 +1,31 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\unrealeditor\\inc\\team26\\uht\\team26wheelfront.gen.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\x64\\team26editor\\development\\unrealed\\sharedpch.unrealed.project.valapi.cpp20.h.pch",
+        "Includes": [
+            "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\team26\\definitions.team26.h",
+            "c:\\8th-team26-ch3-project\\team26\\source\\team26\\team26wheelfront.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\plugins\\experimental\\chaosvehiclesplugin\\source\\chaosvehicles\\public\\chaosvehiclewheel.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\simplevehicle.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\vehicleutility.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\enginesystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\vehiclesystemtemplate.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\transmissionsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\suspensionsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\wheelsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\tiresystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\steeringsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\steeringutility.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\aerodynamicssystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\aerofoilsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\thrustsystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\source\\runtime\\experimental\\chaosvehicles\\chaosvehiclescore\\public\\arcadesystem.h",
+            "c:\\program files\\epic games\\ue_5.5\\engine\\plugins\\experimental\\chaosvehiclesplugin\\intermediate\\build\\win64\\unrealeditor\\inc\\chaosvehicles\\uht\\chaosvehiclewheel.generated.h",
+            "c:\\8th-team26-ch3-project\\team26\\intermediate\\build\\win64\\unrealeditor\\inc\\team26\\uht\\team26wheelfront.generated.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}
