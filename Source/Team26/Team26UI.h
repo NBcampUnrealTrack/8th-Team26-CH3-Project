@@ -30,6 +30,9 @@ public:
 	/** Called to update the gear display */
 	void UpdateGear(int32 NewGear);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = UI)
+	void ToggleControlPanel();
+	
 protected:
 
 	/** Implemented in Blueprint to display the new speed */
