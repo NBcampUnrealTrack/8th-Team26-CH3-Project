@@ -7,6 +7,7 @@
 #include "Team26PlayerController.generated.h"
 
 class UInputMappingContext;
+class UInputAction;
 class ATeam26Pawn;
 class UTeam26UI;
 
@@ -44,8 +45,11 @@ protected:
 
 	/** Pointer to the UI widget */
 	TObjectPtr<UTeam26UI> VehicleUI;
-
 	
+	bool bControlPanelVisible = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* ToggleControlPanelAction;
 
 	// Begin Actor interface
 protected:
@@ -63,6 +67,7 @@ public:
 protected:
 
 	virtual void OnPossess(APawn* InPawn) override;
+	void ToggleControlPanel();
 
 	// End PlayerController interface
 };
