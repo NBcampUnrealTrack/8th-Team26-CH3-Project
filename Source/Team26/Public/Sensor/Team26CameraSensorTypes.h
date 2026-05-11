@@ -12,10 +12,10 @@ UENUM(BlueprintType)
 enum class ELidarSensorPreset : uint8
 {
 	Custom			UMETA(DisplayName = "Custom"),
-	VelodyneVLP16	UMETA(DisplayName = "VelodyneVLP-16"),
-	VelodyneVLP32	UMETA(DisplayName = "VelodyneVLP-32"),
-	Ouster0S1_64    UMETA(DisplayName = "Ouster0S1-64"),
-	Livox_Mid360	UMETA(DisplayName = "Livox_Mid-360"),
+	VelodyneVLP16	UMETA(DisplayName = "Velodyne VLP-16"),
+	VelodyneVLP32	UMETA(DisplayName = "Velodyne VLP-32"),
+	OusterOS1_64    UMETA(DisplayName = "Ouster OS1-64"),
+	Livox_Mid360	UMETA(DisplayName = "Livox Mid-360"),
 };
 
 USTRUCT(blueprintType)
