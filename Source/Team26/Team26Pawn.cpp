@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Team26Pawn.h"
 #include "Team26WheelFront.h"
@@ -17,7 +17,6 @@ DEFINE_LOG_CATEGORY(LogTemplateVehicle);
 
 ATeam26Pawn::ATeam26Pawn()
 {
-	// construct the front camera boom
 	FrontSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Front Spring Arm"));
 	FrontSpringArm->SetupAttachment(GetMesh());
 	FrontSpringArm->TargetArmLength = 0.0f;
@@ -30,7 +29,6 @@ ATeam26Pawn::ATeam26Pawn()
 	FrontCamera->SetupAttachment(FrontSpringArm);
 	FrontCamera->bAutoActivate = false;
 
-	// construct the back camera boom
 	BackSpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("Back Spring Arm"));
 	BackSpringArm->SetupAttachment(GetMesh());
 	BackSpringArm->TargetArmLength = 650.0f;
@@ -45,13 +43,10 @@ ATeam26Pawn::ATeam26Pawn()
 	BackCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("Back Camera"));
 	BackCamera->SetupAttachment(BackSpringArm);
 
-	// Configure the car mesh
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->SetCollisionProfileName(FName("Vehicle"));
 
-	// get the Chaos Wheeled movement component
 	ChaosVehicleMovement = CastChecked<UChaosWheeledVehicleMovementComponent>(GetVehicleMovement());
-
 }
 
 void ATeam26Pawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -60,35 +55,22 @@ void ATeam26Pawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputCo
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
-		// steering 
 		EnhancedInputComponent->BindAction(SteeringAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::Steering);
 		EnhancedInputComponent->BindAction(SteeringAction, ETriggerEvent::Completed, this, &ATeam26Pawn::Steering);
-
-		// throttle 
 		EnhancedInputComponent->BindAction(ThrottleAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::Throttle);
 		EnhancedInputComponent->BindAction(ThrottleAction, ETriggerEvent::Completed, this, &ATeam26Pawn::Throttle);
-
-		// break 
 		EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::Brake);
 		EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Started, this, &ATeam26Pawn::StartBrake);
 		EnhancedInputComponent->BindAction(BrakeAction, ETriggerEvent::Completed, this, &ATeam26Pawn::StopBrake);
-
-		// handbrake 
 		EnhancedInputComponent->BindAction(HandbrakeAction, ETriggerEvent::Started, this, &ATeam26Pawn::StartHandbrake);
 		EnhancedInputComponent->BindAction(HandbrakeAction, ETriggerEvent::Completed, this, &ATeam26Pawn::StopHandbrake);
-
-		// look around 
 		EnhancedInputComponent->BindAction(LookAroundAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::LookAround);
-
-		// toggle camera 
 		EnhancedInputComponent->BindAction(ToggleCameraAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::ToggleCamera);
-
-		// reset the vehicle 
 		EnhancedInputComponent->BindAction(ResetVehicleAction, ETriggerEvent::Triggered, this, &ATeam26Pawn::ResetVehicle);
 	}
 	else
 	{
-		UE_LOG(LogTemplateVehicle, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+		UE_LOG(LogTemplateVehicle, Error, TEXT("'%s' Failed to find an Enhanced Input component!"), *GetNameSafe(this));
 	}
 }
 
@@ -96,112 +78,94 @@ void ATeam26Pawn::Tick(float Delta)
 {
 	Super::Tick(Delta);
 
-	// add some angular damping if the vehicle is in midair
 	bool bMovingOnGround = ChaosVehicleMovement->IsMovingOnGround();
 	GetMesh()->SetAngularDamping(bMovingOnGround ? 0.0f : 3.0f);
 
-	// realign the camera yaw to face front
 	float CameraYaw = BackSpringArm->GetRelativeRotation().Yaw;
 	CameraYaw = FMath::FInterpTo(CameraYaw, 0.0f, Delta, 1.0f);
-
 	BackSpringArm->SetRelativeRotation(FRotator(0.0f, CameraYaw, 0.0f));
 }
 
 void ATeam26Pawn::Steering(const FInputActionValue& Value)
 {
-	// get the input magnitude for steering
-	float SteeringValue = Value.Get<float>();
-
-	// add the input
-	ChaosVehicleMovement->SetSteeringInput(SteeringValue);
+	ChaosVehicleMovement->SetSteeringInput(Value.Get<float>());
 }
 
 void ATeam26Pawn::Throttle(const FInputActionValue& Value)
 {
-	// get the input magnitude for the throttle
-	float ThrottleValue = Value.Get<float>();
-
-	// add the input
-	ChaosVehicleMovement->SetThrottleInput(ThrottleValue);
+	ChaosVehicleMovement->SetThrottleInput(Value.Get<float>());
 }
 
 void ATeam26Pawn::Brake(const FInputActionValue& Value)
 {
-	// get the input magnitude for the brakes
-	float BreakValue = Value.Get<float>();
-
-	// add the input
-	ChaosVehicleMovement->SetBrakeInput(BreakValue);
+	ChaosVehicleMovement->SetBrakeInput(Value.Get<float>());
 }
 
 void ATeam26Pawn::StartBrake(const FInputActionValue& Value)
 {
-	// call the Blueprint hook for the break lights
 	BrakeLights(true);
 }
 
 void ATeam26Pawn::StopBrake(const FInputActionValue& Value)
 {
-	// call the Blueprint hook for the break lights
 	BrakeLights(false);
-
-	// reset brake input to zero
 	ChaosVehicleMovement->SetBrakeInput(0.0f);
 }
 
 void ATeam26Pawn::StartHandbrake(const FInputActionValue& Value)
 {
-	// add the input
 	ChaosVehicleMovement->SetHandbrakeInput(true);
-
-	// call the Blueprint hook for the break lights
 	BrakeLights(true);
 }
 
 void ATeam26Pawn::StopHandbrake(const FInputActionValue& Value)
 {
-	// add the input
 	ChaosVehicleMovement->SetHandbrakeInput(false);
-
-	// call the Blueprint hook for the break lights
 	BrakeLights(false);
 }
 
 void ATeam26Pawn::LookAround(const FInputActionValue& Value)
 {
-	// get the flat angle value for the input 
-	float LookValue = Value.Get<float>();
-
-	// add the input
-	BackSpringArm->AddLocalRotation(FRotator(0.0f, LookValue, 0.0f));
+	BackSpringArm->AddLocalRotation(FRotator(0.0f, Value.Get<float>(), 0.0f));
 }
 
 void ATeam26Pawn::ToggleCamera(const FInputActionValue& Value)
 {
-	// toggle the active camera flag
 	bFrontCameraActive = !bFrontCameraActive;
-
 	FrontCamera->SetActive(bFrontCameraActive);
 	BackCamera->SetActive(!bFrontCameraActive);
 }
 
 void ATeam26Pawn::ResetVehicle(const FInputActionValue& Value)
 {
-	// reset to a location slightly above our current one
 	FVector ResetLocation = GetActorLocation() + FVector(0.0f, 0.0f, 50.0f);
-
-	// reset to our yaw. Ignore pitch and roll
 	FRotator ResetRotation = GetActorRotation();
 	ResetRotation.Pitch = 0.0f;
 	ResetRotation.Roll = 0.0f;
-	
-	// teleport the actor to the reset spot and reset physics
 	SetActorTransform(FTransform(ResetRotation, ResetLocation, FVector::OneVector), false, nullptr, ETeleportType::TeleportPhysics);
-
 	GetMesh()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 	GetMesh()->SetPhysicsLinearVelocity(FVector::ZeroVector);
-
 	UE_LOG(LogTemplateVehicle, Error, TEXT("Reset Vehicle"));
+}
+
+// AI 자율주행 제어 함수
+void ATeam26Pawn::DoThrottle(float Value)
+{
+	// 액셀 (0~1)
+	ChaosVehicleMovement->SetThrottleInput(Value);
+}
+
+void ATeam26Pawn::DoBrake(float Value)
+{
+	// 브레이크 (0~1), 등도 같이 켜고 끔
+	ChaosVehicleMovement->SetBrakeInput(Value);
+	BrakeLights(Value > 0.f);
+}
+
+void ATeam26Pawn::DoSteering(float Value)
+{
+	// 핸들 (-1=왼쪽, 1=오른쪽)
+	ChaosVehicleMovement->SetSteeringInput(Value);
 }
 
 #undef LOCTEXT_NAMESPACE
