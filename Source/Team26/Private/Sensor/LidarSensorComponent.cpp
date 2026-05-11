@@ -269,6 +269,39 @@ void ULidarSensorComponent::CollectAsyncResults()
 	ScanPoints.Reserve(Config.GetTotalPoints());
 	ScanIntensities.Reserve(Config.GetTotalPoints());
 	
+	// 전방 장애물 경고 위한 변수를 계산.
+	// 전방 거리 초기화
+	float MinDist = Config.MaxRange;
+	const float HalfAngle = ForwardWarningAngle * 0.5f;
+
+	// 수집된 포인트들을 전수 조사
+	for (const FVector& Point : LastPointCloud.Points)
+	{
+		// 1. 월드 좌표를 센서 로컬 좌표로 변환
+		FVector LocalPt = PendingTransform.InverseTransformPosition(Point);
+        
+		// 2. 전방(X축)에 있는지 확인
+		if (LocalPt.X > 0)
+		{
+			// 3. 수평 각도 계산 (Atan2 사용)
+			float AngleDeg = FMath::Abs(FMath::RadiansToDegrees(FMath::Atan2(LocalPt.Y, LocalPt.X)));
+            
+			// 4. 설정한 범위 내에 있는지 확인
+			if (AngleDeg <= HalfAngle)
+			{
+				float Dist = LocalPt.Size(); // 혹은 LocalPt.X (직선 거리)
+				if (Dist < MinDist)
+				{
+					MinDist = Dist;
+				}
+			}
+		}
+	}
+
+	ClosestForwardDistance = MinDist;
+	
+	
+	
 	if (BevRenderer)
 	{
 		BevRenderer->RenderPointCloud(LastPointCloud, PendingTransform);

@@ -26,6 +26,10 @@ public:
 	
 	UFUNCTION(BlueprintPure, Category = "LidarSensor")
 	UTexture2D* GetBevRenderTarget() const;
+	
+	// 전방 60도 이내 가장 가까운 장애물 거리를 반환하는 Getter()함수 (cm단위) 
+	UFUNCTION(BlueprintPure, Category = "LidarSensor|Safety")
+	float GetClosestForwardDistance() const { return ClosestForwardDistance; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -112,4 +116,14 @@ private:
 	
 	TArray<FVector> ScanPoints;
 	TArray<float> ScanIntensities;
+	
+	// 아래 변수들은 CollectAsyncResults()에서 계산하는 로직을 추가하였습니다.
+	// 전방 60도 범위 내 가장 가까운 장애물 거리 (cm 단위)
+	// UI에서 이 값을 쓸 때는 센티미터(cm) 단위를 미터(m)로 바꾸기 위해 ClosestForwardDistance / 100.0f를 사용하세요.
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|Safety", meta = (AllowPrivateAccess = "true"))
+	float ClosestForwardDistance = 99999.0f; // 장애물이 없을 경우에 오작동이 발생하는 것을 방지하기 위해 큰 숫자 사용했습니다.
+
+	// 경고 판단을 위한 전방 각도 범위
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|Safety")
+	float ForwardWarningAngle = 60.0f;
 };
