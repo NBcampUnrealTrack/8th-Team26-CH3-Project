@@ -5,3 +5,4 @@
 
 IMPLEMENT_PRIMARY_GAME_MODULE( FDefaultGameModuleImpl, Team26, "Team26" );
  
+DEFINE_LOG_CATEGORY(LogDigitalTwinNbc)
