@@ -68,7 +68,7 @@ private:
 	//------------ 조향 변수 ---------------
 	//-------------------------------------
 
-	// 앞을 보는 기본 거리(15m)
+	// 앞을 보는 최소 기본 거리(15m)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Steering",
 		meta=(AllowPrivateAccess="true"))
 	float LookAheadBase = 1500.f;
@@ -130,6 +130,6 @@ private:
 	int32 CurrentPointIndex = 0;
 	// 경로가 닫힌 루프인지 (트랙처럼 한 바퀴)
 	bool  bClosedLoop = false;
-	// 목표속도 (튀지 않게 부드럽게 따라감)
+	// 목표속도 (튀지 않게 부드럽게 따라감) default: MaxSpeed
 	float SmoothedTargetSpeed = 0.f;
 };
