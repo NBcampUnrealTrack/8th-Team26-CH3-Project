@@ -8,6 +8,7 @@
 #include "LandscapeSplineControlPoint.h"
 #include "LandscapeSplineSegment.h"
 #include "LandscapeSplinesComponent.h"
+#include "Sensor/LidarSensorComponent.h"  // [추가] 한길님 라이다
 
 // 이 파일 안에서만 쓰는 로그 카테고리 정의.
 DEFINE_LOG_CATEGORY_STATIC(LogPathFollowingComponent, Log, All);
@@ -303,6 +304,18 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	}
 
 	// Get advanced point index
+	// [추가] 자율주행 꺼져있으면 아무것도 안함
+	if (OwnerPawn->bAutoDrive == false) return;
+
+	// [추가] 라이다에서 장애물 거리 가져와서 500cm 이내면 자동 브레이크
+	ULidarSensorComponent* Lidar = OwnerPawn->FindComponentByClass<ULidarSensorComponent>();
+	if (Lidar && Lidar->GetClosestForwardDistance() < 500.f)
+	{
+		OwnerPawn->DoThrottle(0.f);
+		OwnerPawn->DoBrake(1.f);
+		return;
+	}
+
 	const FVector Location = OwnerPawn->GetActorLocation();
 	const float Velocity = OwnerPawn->GetVelocity().Size();
 	const int32 Max = bClosedLoop ? PathPoints.Num() : PathPoints.Num() - 2;

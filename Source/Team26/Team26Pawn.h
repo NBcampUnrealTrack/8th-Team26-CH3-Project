@@ -1,88 +1,45 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
 #pragma once
-
 #include "CoreMinimal.h"
 #include "WheeledVehiclePawn.h"
 #include "Team26Pawn.generated.h"
-
 class UCameraComponent;
 class USpringArmComponent;
 class UInputAction;
 class UChaosWheeledVehicleMovementComponent;
 struct FInputActionValue;
-
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateVehicle, Log, All);
-
-/**
- *  Vehicle Pawn class
- *  Handles common functionality for all vehicle types,
- *  including input handling and camera management.
- *  
- *  Specific vehicle configurations are handled in subclasses.
- */
 UCLASS(abstract)
 class ATeam26Pawn : public AWheeledVehiclePawn
 {
 	GENERATED_BODY()
-
-	/** Spring Arm for the front camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* FrontSpringArm;
-
-	/** Front Camera component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FrontCamera;
-
-	/** Spring Arm for the back camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* BackSpringArm;
-
-	/** Back Camera component */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* BackCamera;
-
-	/** Cast pointer to the Chaos Vehicle movement component */
 	TObjectPtr<UChaosWheeledVehicleMovementComponent> ChaosVehicleMovement;
-
 protected:
-
-	/** Steering Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* SteeringAction;
-
-	/** Throttle Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ThrottleAction;
-
-	/** Brake Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* BrakeAction;
-
-	/** Handbrake Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* HandbrakeAction;
-
-	/** Look Around Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* LookAroundAction;
-
-	/** Toggle Camera Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ToggleCameraAction;
-
-	/** Reset Vehicle Action */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ResetVehicleAction;
-
-	/** Keeps track of which camera is active */
 	bool bFrontCameraActive = false;
-
 public:
 	ATeam26Pawn();
-
-	// Begin Pawn interface
-
 	virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
 
 	// End Pawn interface
@@ -90,12 +47,17 @@ public:
 	// Begin Actor interface
 
 	virtual void Tick(float Delta) override;
+	// AI 자율주행 제어 함수
+	void DoThrottle(float Value);  // 액셀
+	void DoBrake(float Value);     // 브레이크
+	void DoSteering(float Value);  // 핸들
 
-	// End Actor interface
+	// [추가] 자율주행 on/off (true = 자율주행, false = 수동)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AutoDrive")
+	bool bAutoDrive = true;
+
 
 protected:
-
-	/** Handles steering input */
 	void Steering(const FInputActionValue& Value);
 
 	/** Handles throttle input */
@@ -120,11 +82,8 @@ protected:
 
 	/** Handles reset vehicle input */
 	void ResetVehicle(const FInputActionValue& Value);
-
-	/** Called when the brake lights are turned on or off */
-	UFUNCTION(BlueprintImplementableEvent, Category="Vehicle")
+	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle")
 	void BrakeLights(bool bBraking);
-
 public:
 	/** Returns the front spring arm subobject */
 	FORCEINLINE USpringArmComponent* GetFrontSpringArm() const { return FrontSpringArm; }
