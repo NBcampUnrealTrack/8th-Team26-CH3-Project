@@ -10,6 +10,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
+#include "Sensor/LidarSensorComponent.h" // [추가] 한길님 라이다
 
 #define LOCTEXT_NAMESPACE "VehiclePawn"
 
