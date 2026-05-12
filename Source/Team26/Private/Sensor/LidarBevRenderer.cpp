@@ -31,7 +31,7 @@ void ULidarBevRenderer::BuildColorLut()
 	const FLinearColor Bright = Config.PointColor;
 	for (int32 i = 0; i < 256; ++i)
 	{
-		ColorLut[1] = FMath::Lerp(
+		ColorLut[i] = FMath::Lerp(
 			DarkGreen,
 			Bright,
 			static_cast<float>(i) / 255.0f
