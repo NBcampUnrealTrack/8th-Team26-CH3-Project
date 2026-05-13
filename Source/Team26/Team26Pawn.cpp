@@ -10,7 +10,11 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
+#include "Team26PlayerController.h"
+#include "Sensor/CameraSensorComponent.h"
 #include "Sensor/LidarSensorComponent.h" // [추가] 한길님 라이다
+#include "Components/SceneCaptureComponent2D.h" // [추가][이한길] 센서뷰 관련.
+#include "Engine/TextureRenderTarget2D.h" // [추가][이한길] 센서뷰 관련.
 
 #define LOCTEXT_NAMESPACE "VehiclePawn"
 
@@ -48,6 +52,16 @@ ATeam26Pawn::ATeam26Pawn()
 	GetMesh()->SetCollisionProfileName(FName("Vehicle"));
 
 	ChaosVehicleMovement = CastChecked<UChaosWheeledVehicleMovementComponent>(GetVehicleMovement());
+	
+	// [추가][이한길] 카메라 센서 생성 및 부착
+	CameraSensor = CreateDefaultSubobject<UCameraSensorComponent>(TEXT("CameraSensor"));
+	CameraSensor->SetupAttachment(RootComponent); // 자동차 본체에 부착
+	CameraSensor->SetRelativeLocation(FVector(200.f, 0.f, 50.f));
+
+	// [추가][이한길] 라이다 센서 생성 및 부착
+	LidarSensor = CreateDefaultSubobject<ULidarSensorComponent>(TEXT("LidarSensor"));
+	LidarSensor->SetupAttachment(RootComponent);
+	LidarSensor->SetRelativeLocation(FVector(0.f, 0.f, 150.f));
 }
 
 void ATeam26Pawn::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -147,6 +161,38 @@ void ATeam26Pawn::ResetVehicle(const FInputActionValue& Value)
 	GetMesh()->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 	GetMesh()->SetPhysicsLinearVelocity(FVector::ZeroVector);
 	UE_LOG(LogTemplateVehicle, Error, TEXT("Reset Vehicle"));
+}
+
+// [추가][이한길] 시작시 센서관련 초기화
+void ATeam26Pawn::BeginPlay()
+{
+	Super::BeginPlay();
+	if (ATeam26PlayerController* PC = Cast<ATeam26PlayerController>(GetController()))
+	{
+		if (GetCameraSensor())
+		{
+			UTextureRenderTarget2D* CameraRT = GetCameraSensor()->GetRenderTarget();
+            
+			if (CameraRT)
+			{
+				PC->ToggleSensorView(CameraRT);
+				PC->ToggleSensorView(nullptr);
+			}
+		}
+		
+		if (GetLidarSensor())
+		{
+			LidarSensor->StartScan();
+			UE_LOG(LogTemp, Warning, TEXT("Lidar Scan Started in Pawn BeginPlay"));
+			UTexture2D* LidarBEVTexture = GetLidarSensor()->GetBevRenderTarget();
+            
+			if (LidarBEVTexture)
+			{
+				PC->ToggleLidarView(LidarBEVTexture);
+				PC->ToggleLidarView(nullptr);
+			}
+		}
+	}
 }
 
 // AI 자율주행 제어 함수

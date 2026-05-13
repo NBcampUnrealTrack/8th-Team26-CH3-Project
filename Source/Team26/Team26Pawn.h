@@ -7,6 +7,8 @@ class UCameraComponent;
 class USpringArmComponent;
 class UInputAction;
 class UChaosWheeledVehicleMovementComponent;
+class UCameraSensorComponent;
+class ULidarSensorComponent;
 struct FInputActionValue;
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateVehicle, Log, All);
 UCLASS(abstract)
@@ -22,6 +24,11 @@ class ATeam26Pawn : public AWheeledVehiclePawn
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* BackCamera;
 	TObjectPtr<UChaosWheeledVehicleMovementComponent> ChaosVehicleMovement;
+	// [추가][이한길] 차량에 센서 부착
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category ="Sensor", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraSensorComponent> CameraSensor;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category ="Sensor", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<ULidarSensorComponent> LidarSensor;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* SteeringAction;
@@ -64,10 +71,16 @@ protected:
 	void ResetVehicle(const FInputActionValue& Value);
 	UFUNCTION(BlueprintImplementableEvent, Category = "Vehicle")
 	void BrakeLights(bool bBraking);
+	// [추가] [이한길] 센서 UI관련 로직.
+	virtual void BeginPlay() override;
+
 public:
 	FORCEINLINE USpringArmComponent* GetFrontSpringArm() const { return FrontSpringArm; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FrontCamera; }
 	FORCEINLINE USpringArmComponent* GetBackSpringArm() const { return BackSpringArm; }
 	FORCEINLINE UCameraComponent* GetBackCamera() const { return BackCamera; }
 	FORCEINLINE const TObjectPtr<UChaosWheeledVehicleMovementComponent>& GetChaosVehicleMovement() const { return ChaosVehicleMovement; }
+	// [추가][이한길] 센서뷰 관련.
+	FORCEINLINE UCameraSensorComponent* GetCameraSensor() const { return CameraSensor; }
+	FORCEINLINE ULidarSensorComponent* GetLidarSensor() const { return LidarSensor; }
 };

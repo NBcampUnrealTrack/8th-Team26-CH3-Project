@@ -18,10 +18,10 @@ void ULidarBevRenderer::CreateTexture()
 	
 	DynamicTexture = UTexture2D::CreateTransient(Size, Size, PF_B8G8R8A8);
 	DynamicTexture->Filter = TF_Nearest;
-	DynamicTexture->SRGB = true;
+	DynamicTexture->SRGB = false;
 	DynamicTexture->UpdateResource();
 	
-	PixelBuffer.SetNumUninitialized(Size * Size);
+	PixelBuffer.SetNum(Size * Size);
 	UpdateRegion = FUpdateTextureRegion2D(0, 0, 0, 0, Size, Size);
 }
 
@@ -54,9 +54,12 @@ void ULidarBevRenderer::UpdateConfig(const FBevRenderConfig& InConfig)
 
 void ULidarBevRenderer::RenderPointCloud(const FLidarPointCloudData& PointCloud, const FTransform& SensorTransform)
 {
+	// UE_LOG(LogTemp, Warning, TEXT("Rendering Lidar: %d points"), PointCloud.PointCount); 오류 확인용 로그.
 	if (!DynamicTexture) return;
 	
 	const int32 ImgSize = Config.ImageSize;
+	FMemory::Memset(PixelBuffer.GetData(), 0, PixelBuffer.Num() * sizeof(FColor));
+	
 	const int32 TotalPixels = ImgSize * ImgSize;
 	const float HalfSize = static_cast<float>(ImgSize) * 0.5f;
 	const float Scale = HalfSize / Config.ViewRange;
@@ -81,30 +84,38 @@ void ULidarBevRenderer::RenderPointCloud(const FLidarPointCloudData& PointCloud,
 		const FVector LocalPt = InvSensor.TransformPosition(Points[i]);
 		
 		const int32 CX = FMath::RoundToInt32(HalfSize + LocalPt.Y * Scale);
-		const int32 CY = FMath::RoundToInt32(HalfSize + LocalPt.X * Scale);
+		const int32 CY = FMath::RoundToInt32(HalfSize - LocalPt.X * Scale);
 		
 		if (CX < PtHalf || CX >= ImgSize - PtHalf || CY < PtHalf || CY >= ImgSize - PtHalf)
 		{
 			continue;
 		}
 		
-		const float Intensity = (i < IntensityCount) ? Intensities[i] : 0.5f;
-		const FColor Color = ColorLut[
-			static_cast<uint8>(FMath::Clamp(Intensity * 255.f, 0.f, 255.f))
-		];
-		
-		if (PtSize == 1)
+	
+		if (CX >= 0 && CX < ImgSize && CY >= 0 && CY < ImgSize)
 		{
-			Pixels[CY * ImgSize + CX] = Color;
-		}
-		else
-		{
-			for (int32 dy = -PtHalf; dy < PtSize - PtHalf; ++dy)
+			const float Intensity = (i < IntensityCount) ? Intensities[i] : 0.5f;
+			const FColor Color = ColorLut[static_cast<uint8>(FMath::Clamp(Intensity * 255.f, 0.f, 255.f))];
+			
+			if (PtSize == 1)
 			{
-				const int32 Row = (CY + dy) * ImgSize;
-				for (int32 dx = -PtHalf; dx < PtSize - PtHalf; ++dx)
+				Pixels[CY * ImgSize + CX] = Color;
+			}
+			else
+			{
+				for (int32 dy = -PtHalf; dy < PtSize - PtHalf; ++dy)
 				{
-					Pixels[Row + CX + dx] = Color;
+					const int32 TargetY = CY + dy;
+					if (TargetY < 0 || TargetY >= ImgSize) continue;
+
+					const int32 Row = TargetY * ImgSize;
+					for (int32 dx = -PtHalf; dx < PtSize - PtHalf; ++dx)
+					{
+						const int32 TargetX = CX + dx;
+						if (TargetX < 0 || TargetX >= ImgSize) continue;
+                    
+						Pixels[Row + TargetX] = Color;
+					}
 				}
 			}
 		}
@@ -123,8 +134,8 @@ void ULidarBevRenderer::RenderPointCloud(const FLidarPointCloudData& PointCloud,
 	
 	DynamicTexture->UpdateTextureRegions(
 		0, 1, &UpdateRegion,
-		ImgSize * sizeof(FColor),
-		sizeof(FColor),
-		reinterpret_cast<uint8*>(Pixels)
+		(uint32)(ImgSize * sizeof(FColor)),
+	   (uint32)sizeof(FColor),
+	   reinterpret_cast<uint8*>(Pixels)
 	);
 }
