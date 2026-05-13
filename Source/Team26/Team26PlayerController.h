@@ -10,6 +10,7 @@ class UInputMappingContext;
 class UInputAction;
 class ATeam26Pawn;
 class UTeam26UI;
+class USensorViewWidget;
 
 /**
  *  Vehicle Player Controller class
@@ -51,6 +52,19 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* ToggleControlPanelAction;
 
+	// [추가][이한길] 센서뷰 위젯 토글 관련 변수 4개 추가.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = UI)
+	TSubclassOf<USensorViewWidget> SensorViewWidgetClass;
+	
+	UPROPERTY()
+	TObjectPtr<USensorViewWidget> SensorViewWidget;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* ToggleSensorAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* ToggleLidarAction;
+	
 	// Begin Actor interface
 protected:
 
@@ -60,6 +74,12 @@ protected:
 public:
 
 	virtual void Tick(float Delta) override;
+	
+	// [추가][이한길] 센서뷰 위젯 토글 관련 함수 4개 추가.
+	void ToggleSensorView(UTextureRenderTarget2D* InCameraRT);
+	void ToggleLidarView(UTexture2D* InLidarRT);
+	void HandleSensorToggle();
+	void HandleLidarToggle();
 
 	// End Actor interface
 

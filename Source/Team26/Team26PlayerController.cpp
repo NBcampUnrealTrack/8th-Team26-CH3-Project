@@ -7,6 +7,8 @@
 #include "Team26UI.h"
 #include "EnhancedInputSubsystems.h"
 #include "ChaosWheeledVehicleMovementComponent.h"
+#include "public/Sensor/SensorViewWidget.h"
+#include "Sensor/LidarSensorComponent.h"
 
 void ATeam26PlayerController::BeginPlay()
 {
@@ -18,6 +20,16 @@ void ATeam26PlayerController::BeginPlay()
 	check(VehicleUI);
 
 	VehicleUI->AddToViewport();
+	
+	if (SensorViewWidgetClass)
+	{
+		SensorViewWidget = CreateWidget<USensorViewWidget>(this, SensorViewWidgetClass);
+		if (SensorViewWidget)
+		{
+			SensorViewWidget->AddToViewport(10);
+			SensorViewWidget->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+	}
 }
 
 void ATeam26PlayerController::SetupInputComponent()
@@ -33,6 +45,26 @@ void ATeam26PlayerController::SetupInputComponent()
 				ETriggerEvent::Started,
 				this,
 				&ATeam26PlayerController::ToggleControlPanel
+			);
+		}
+		
+		// [추가][이한길] 센서뷰 위젯 토글 관련 함수 바인딩
+		if (ToggleSensorAction)
+		{
+			EnhancedInputComponent->BindAction(
+				ToggleSensorAction,
+				ETriggerEvent::Started,
+				this,
+				&ATeam26PlayerController::HandleSensorToggle
+			);
+		}
+		if (ToggleLidarAction)
+		{
+			EnhancedInputComponent->BindAction(
+				ToggleLidarAction,
+				ETriggerEvent::Started,
+				this,
+				&ATeam26PlayerController::HandleLidarToggle
 			);
 		}
 	}
@@ -58,6 +90,49 @@ void ATeam26PlayerController::Tick(float Delta)
 	{
 		VehicleUI->UpdateSpeed(VehiclePawn->GetChaosVehicleMovement()->GetForwardSpeed());
 		VehicleUI->UpdateGear(VehiclePawn->GetChaosVehicleMovement()->GetCurrentGear());
+	}
+}
+// [추가][이한길] 센서뷰 위젯 토글 관련 함수 4개 정의.
+void ATeam26PlayerController::ToggleSensorView(UTextureRenderTarget2D* InCameraRT)
+{
+	if (!SensorViewWidget) return;
+	
+	if (InCameraRT)
+	{
+		SensorViewWidget->SetRenderTarget(InCameraRT);
+	}
+	SensorViewWidget->ToggleCameraView();
+}
+
+void ATeam26PlayerController::ToggleLidarView(UTexture2D* InLidarRT)
+{
+	if (!SensorViewWidget) return;
+	
+	if (InLidarRT)
+	{
+		SensorViewWidget->SetLidarRenderTarget(InLidarRT);
+	}
+	SensorViewWidget->ToggleLidarView();
+}
+
+void ATeam26PlayerController::HandleSensorToggle()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("1 Key Pressed!"));
+	ToggleSensorView(nullptr);
+}
+
+void ATeam26PlayerController::HandleLidarToggle()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("2 Key Pressed!"));
+	if (VehiclePawn && SensorViewWidget)
+	{
+		// 라이다 센서의 BEV 렌더 타겟(UTexture2D)을 가져옵니다.
+		UTexture2D* LidarTex = VehiclePawn->GetLidarSensor()->GetBevRenderTarget();
+		ToggleLidarView(LidarTex);
+	}
+	else
+	{
+		ToggleLidarView(nullptr);
 	}
 }
 

@@ -20,6 +20,7 @@ ULidarSensorComponent::ULidarSensorComponent()
 void ULidarSensorComponent::StartScan()
 {
 	bSensorEnabled = true;
+	SetComponentTickEnabled(true);
 	StartScanTimer();
 }
 
@@ -56,7 +57,7 @@ void ULidarSensorComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	if (bHasPendingTraces && GFrameCounter > FireFrameNumber)
 	{
 		CollectAsyncResults();
-		SetComponentTickEnabled(false);
+		//SetComponentTickEnabled(false); 라이다 센서가 지속적으로 작동을 안해서 주석처리함.
 	}
 }
 
