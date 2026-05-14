@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// LidarSensorComponent.cpp
 
 
 #include "Sensor/LidarSensorComponent.h"
@@ -7,6 +7,7 @@
 #include "HAL/PlatformFileManager.h"
 #include "Misc/Paths.h"
 #include "TimerManager.h"
+#include "DrawDebugHelpers.h" // DragDebugLine 사용위한 헤더.
 
 DEFINE_LOG_CATEGORY_STATIC(LogLidarSensor, Log, All);
 
@@ -59,6 +60,24 @@ void ULidarSensorComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		CollectAsyncResults();
 		//SetComponentTickEnabled(false); 라이다 센서가 지속적으로 작동을 안해서 주석처리함.
 	}
+	
+	// 라이다 센서 감지 문제 확인 위한 디버그 라인
+	FVector Start = GetComponentLocation();
+	FVector ForwardVector = GetForwardVector();
+	FVector End = Start + (ForwardVector * Config.MaxRange);
+
+	// 충돌 감지 로직 (기존 코드)
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetOwner()); // 본인 차량 무시 설정
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params);
+
+	// 디버그 라인 출력 코드
+	FColor LineColor = bHit ? FColor::Red : FColor::Green; // 감지되면 빨간색, 아니면 초록색
+    
+	// DrawDebugLine(월드, 시작점, 끝점, 색상, 지속여부, 수명, 우선순위, 두께)
+	DrawDebugLine(GetWorld(), Start, End, LineColor, false, -1.0f, 0, 2.0f);
 }
 
 #if WITH_EDITOR
@@ -250,6 +269,13 @@ void ULidarSensorComponent::CollectAsyncResults()
 		if (Data.OutHits.IsEmpty()) continue;
 		
 		const FHitResult& Hit = Data.OutHits[0];
+		
+		// 태그 체크로 센서에서 바닥을 무시하게함.
+		if (Hit.GetActor() && Hit.GetActor()->ActorHasTag(TEXT("Track")))
+		{
+			continue; // 트랙 태그가 있으면 거리 계산에서 제외하고 다음 포인트로 넘어감
+		}
+		
 		if (!Hit.bBlockingHit || Hit.Distance < MinRange) continue;
 		
 		FVector HitPoint = Hit.ImpactPoint;

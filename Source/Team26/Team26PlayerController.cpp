@@ -117,13 +117,13 @@ void ATeam26PlayerController::ToggleLidarView(UTexture2D* InLidarRT)
 
 void ATeam26PlayerController::HandleSensorToggle()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("1 Key Pressed!"));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, TEXT("Camera Sensor View Toggled!"));
 	ToggleSensorView(nullptr);
 }
 
 void ATeam26PlayerController::HandleLidarToggle()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("2 Key Pressed!"));
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("Lidar Sensor View Toggled!"));
 	if (VehiclePawn && SensorViewWidget)
 	{
 		// 라이다 센서의 BEV 렌더 타겟(UTexture2D)을 가져옵니다.
