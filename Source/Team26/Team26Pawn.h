@@ -85,10 +85,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AutoDrive")
 	bool bAutoDrive = true;
 
-	// [추가] [강민서] 충돌 후 자동 복구
+	//[강민서] 충돌 후 자동 복구
 	void RecoverVehicle();
 
-	// [추가] [강민서] 복구 완료 처리
+	//[강민서] 복구 완료 처리
 	void FinishRecoverVehicle();
 
 protected:
@@ -121,20 +121,31 @@ protected:
 
 private:
 
-	// [추가] [강민서] 복구 중 체크
+	//[강민서] 복구 중 체크
 	bool bIsResetting = false;
 
-	// [추가] [강민서] 정지 시간 체크
+	//[강민서] 정지 시간 체크
 	float StopTime = 0.f;
 
-	// [추가] [강민서] 마지막 정상 위치 저장
+	//[강민서] 마지막 정상 위치 저장
 	FVector LastSafeLocation;
 
-	// [추가] [강민서] 마지막 정상 회전 저장
+	//[강민서] 마지막 정상 회전 저장
 	FRotator LastSafeRotation;
 
-	// [추가] [강민서] 복구 타이머
+	//[강민서] 복구 타이머
 	FTimerHandle RecoverTimerHandle;
+
+	// [추가] [강민서] 전복 감지 타이머
+	float FlipTimer = 0.f;
+
+	// [추가] [강민서] 전복 판단 각도 (기본 60도)
+	UPROPERTY(EditAnywhere, Category = "VehicleReset")
+	float FlipAngleThreshold = 60.f;
+
+	// [추가] [강민서] 전복 후 리셋까지 대기 시간 (기본 3초)
+	UPROPERTY(EditAnywhere, Category = "VehicleReset")
+	float FlipResetDelay = 3.f;
 
 public:
 

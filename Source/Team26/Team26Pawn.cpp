@@ -15,7 +15,7 @@
 #include "Sensor/LidarSensorComponent.h" // [추가] 한길님 라이다
 #include "Components/SceneCaptureComponent2D.h" // [추가][이한길] 센서뷰 관련.
 #include "Engine/TextureRenderTarget2D.h" // [추가][이한길] 센서뷰 관련.
-#include "TimerManager.h" // [추가] [강민서] 자동 복구 타이머
+#include "TimerManager.h" // [강민서] 자동 복구 타이머
 
 #define LOCTEXT_NAMESPACE "VehiclePawn"
 
@@ -58,7 +58,7 @@ ATeam26Pawn::ATeam26Pawn()
 
 	// [추가][이한길] 카메라 센서 생성 및 부착
 	CameraSensor = CreateDefaultSubobject<UCameraSensorComponent>(TEXT("CameraSensor"));
-	CameraSensor->SetupAttachment(GetMesh()); // 자동차 본체에 부착
+	CameraSensor->SetupAttachment(GetMesh());
 	CameraSensor->SetRelativeLocation(FVector(200.f, 0.f, 50.f));
 
 	// [추가][이한길] 라이다 센서 생성 및 부착
@@ -66,7 +66,7 @@ ATeam26Pawn::ATeam26Pawn()
 	LidarSensor->SetupAttachment(GetMesh());
 	LidarSensor->SetRelativeLocation(FVector(0.f, 0.f, 150.f));
 
-	// [추가] [강민서] 초기값
+	//[강민서] 초기값
 	bIsResetting = false;
 	LastSafeLocation = FVector::ZeroVector;
 	LastSafeRotation = FRotator::ZeroRotator;
@@ -117,28 +117,50 @@ void ATeam26Pawn::Tick(float Delta)
 
 	BackSpringArm->SetRelativeRotation(FRotator(0.0f, CameraYaw, 0.0f));
 
-	// [추가] [강민서] 정상 주행 위치 저장
+	//[강민서] 정상 주행 위치 저장
 	if (!bIsResetting && GetVelocity().Size() > 100.f)
 	{
 		LastSafeLocation = GetActorLocation();
 		LastSafeRotation = GetActorRotation();
 	}
 
-	// [추가] [강민서] 자율주행 기본 전진
+	//[강민서] 자율주행 기본 전진
 	if (bAutoDrive && !bIsResetting)
 	{
 		DoThrottle(0.7f);
 	}
 
-	// [추가] [강민서] 차량 멈춤 감지
-	if (!bIsResetting && bAutoDrive)
+	// [추가] [강민서] 전복 감지 (복구 중 아닐 때만)
+	if (!bIsResetting)
 	{
-		if (GetVelocity().Size() < 5.f)
+		const float TiltAngle = FMath::Abs(GetActorRotation().Roll);
+		if (TiltAngle > FlipAngleThreshold)
+		{
+			FlipTimer += Delta;
+			if (FlipTimer >= FlipResetDelay)
+			{
+				FlipTimer = 0.f;
+				StopTime = 0.f;
+				UE_LOG(LogTemplateVehicle, Warning, TEXT("Auto Reset: Flipped"));
+				RecoverVehicle();
+			}
+		}
+		else
+		{
+			FlipTimer = 0.f;
+		}
+	}
+
+	//[강민서] 차량 멈춤 감지 (타이머 실행중이면 무시)
+	if (!bIsResetting && bAutoDrive && !GetWorld()->GetTimerManager().IsTimerActive(RecoverTimerHandle))
+	{
+		if (GetVelocity().Size() < 5.f && GetWorld()->GetTimeSeconds() > 5.f)
 		{
 			StopTime += Delta;
 
 			if (StopTime >= 2.0f)
 			{
+				StopTime = 0.f;
 				RecoverVehicle();
 			}
 		}
@@ -289,7 +311,7 @@ void ATeam26Pawn::DoSteering(float Value)
 	ChaosVehicleMovement->SetSteeringInput(Value);
 }
 
-// [추가] [강민서] 충돌 후 2초 정지 후 재출발
+//[강민서] 충돌 후 2초 정지 후 재출발
 void ATeam26Pawn::RecoverVehicle()
 {
 	if (bIsResetting)
@@ -298,6 +320,7 @@ void ATeam26Pawn::RecoverVehicle()
 	}
 
 	bIsResetting = true;
+	FlipTimer = 0.f;  // [추가] [강민서] 전복 타이머 초기화
 
 	ChaosVehicleMovement->SetThrottleInput(0.f);
 	ChaosVehicleMovement->SetBrakeInput(1.f);
@@ -317,7 +340,7 @@ void ATeam26Pawn::RecoverVehicle()
 	);
 }
 
-// [추가] [강민서] 차량 재배치
+//[강민서] 차량 재배치
 void ATeam26Pawn::FinishRecoverVehicle()
 {
 	SetActorLocationAndRotation(
@@ -340,6 +363,7 @@ void ATeam26Pawn::FinishRecoverVehicle()
 	}
 
 	StopTime = 0.f;
+	FlipTimer = 0.f;  // [추가] [강민서] 전복 타이머 초기화
 	bIsResetting = false;
 
 	UE_LOG(LogTemplateVehicle, Warning, TEXT("Vehicle Respawn"));
