@@ -8,7 +8,11 @@
 #include "LandscapeSplineControlPoint.h"
 #include "LandscapeSplineSegment.h"
 #include "LandscapeSplinesComponent.h"
-#include "Sensor/LidarSensorComponent.h" // [추가] 한길님 라이다
+#include "Algo/Reverse.h"
+
+// 월드 파티션 아닌 맵을 위해 추가
+#include "Landscape.h"
+#include "LandscapeInfo.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPathFollowingComponent, Log, All);
 
@@ -35,17 +39,72 @@ void USplineFollowerComponent::BuildPath()
 	/////////////////////////////////////////////////////////////////////////////
 	// Landscape Spline Component 찾기
 	
-	// 월드의 모든 ALandscapeSplineActor 순회 첫 번째 발견된거 사용
-	// 차 두 대 경로 지정시 여길 수정
+	// 차량 위치 먼저 확보 (스플라인 비교에 필요)
+	const FVector VehicleLoc = OwnerPawn->GetActorLocation();
+
+	// 스플라인을 직접 지정하거나 
+	// 월드의 모든 LandscapeSplineActor 중 차량과 "가장 가까운 컨트롤 포인트를 가진" 스플라인 선택
 	ULandscapeSplinesComponent* SplinesComp = nullptr;
-	for (TActorIterator<ALandscapeSplineActor> It(GetWorld()); It; ++It)
+	FString SelectionReason;  // [디버그] 어떤 방법으로 골랐는지
+
+	//-------- 우선순위 1: 직접 참조 --------
+	if (AssignedSpline)
 	{
-		SplinesComp = It->GetSplinesComponent();
-		if (SplinesComp) break;
+		SplinesComp = AssignedSpline->GetSplinesComponent();
+		SelectionReason = TEXT("AssignedSpline (직접 참조)");
 	}
+	//-------- 우선순위 2: 태그 매칭 --------
+	if (!SplinesComp && !AssignedSplineTag.IsNone())
+	{
+		for (TActorIterator<ALandscapeSplineActor> It(GetWorld()); It; ++It)
+		{
+			if (It->ActorHasTag(AssignedSplineTag))
+			{
+				SplinesComp = It->GetSplinesComponent();
+				SelectionReason = FString::Printf(TEXT("Tag matched (%s)"), *AssignedSplineTag.ToString());
+				break;
+			}
+		}
+	}
+	//-------- 우선순위 3: 가장 가까운  --------
 	if (!SplinesComp)
 	{
-		UE_LOG(LogDigitalTwinNbc, Warning, TEXT("SplineFollower: No ALandscapeSplineActor found"));
+		float BestSplineDist = SearchRadius;
+		FString WinnerName = TEXT("NONE");
+		int32 NumCandidates = 0;
+
+		for (TActorIterator<ALandscapeSplineActor> It(GetWorld()); It; ++It)
+		{
+			ULandscapeSplinesComponent* Candidate = It->GetSplinesComponent();
+			if (!Candidate) continue;
+			NumCandidates++;
+
+			const FTransform CandXform = Candidate->GetComponentTransform();
+			for (ULandscapeSplineControlPoint* CP : Candidate->GetControlPoints())
+			{
+				const float D = FVector::Dist(CandXform.TransformPosition(CP->Location), VehicleLoc);
+				if (D < BestSplineDist)
+				{
+					BestSplineDist = D;
+					SplinesComp = Candidate;
+					WinnerName = It->GetName();
+				}
+			}
+		}
+		SelectionReason = FString::Printf(TEXT("Nearest (%s @ %.1fm of %d candidates)"),
+			*WinnerName, BestSplineDist / 100.f, NumCandidates);
+	}
+
+	//-------- 결과 로그 --------
+	UE_LOG(LogPathFollowingComponent, Log,
+		TEXT("SplineFollower[%s]: Spline selection — %s"),
+		*OwnerPawn->GetName(), *SelectionReason);
+
+	if (!SplinesComp)
+	{
+		UE_LOG(LogPathFollowingComponent, Warning,
+			TEXT("SplineFollower[%s]: No spline found by any method"),
+			*OwnerPawn->GetName());
 		return;
 	}
 	
@@ -54,8 +113,6 @@ void USplineFollowerComponent::BuildPath()
 
 	// 스플라인 컴포넌트의 로컬좌표를 월드좌표로 변환하기 위한 캐싱
 	const FTransform ToWorld = SplinesComp->GetComponentTransform();
-	// 차량의 월드좌표
-	const FVector VehicleLoc = OwnerPawn->GetActorLocation();
 
 	float BestDist = SearchRadius;
 	ULandscapeSplineControlPoint* NearestCP = nullptr;
@@ -71,7 +128,7 @@ void USplineFollowerComponent::BuildPath()
 	}
 	if (!NearestCP)
 	{
-		UE_LOG(LogDigitalTwinNbc, Warning, TEXT("SplineFollower: No control point within SearchRadius"));
+		UE_LOG(LogPathFollowingComponent, Warning, TEXT("SplineFollower: No control point within SearchRadius"));
 		return;
 	}
 
@@ -143,13 +200,25 @@ void USplineFollowerComponent::BuildPath()
 			// PathPoints에 Pts를 추가할때 CP2가 중복됨.
 			// 첫 세그먼트의 포인트들은 다 넣고 (인덱스 0부터)
 			// 다음 세그먼트는 첫 포인트는 건너뜀 (인덱스 1부터 넣음)
+			//
+			// LaneSide 와 LaneSideStrength 로 Center↔Left/Right 사이 보간
+			auto PickLanePoint = [this](const FLandscapeSplineInterpPoint& P) -> FVector
+			{
+				switch (LaneSide)
+				{
+				case ESplineLaneSide::Left:  return FMath::Lerp(P.Center, P.Left,  LaneSideStrength);
+				case ESplineLaneSide::Right: return FMath::Lerp(P.Center, P.Right, LaneSideStrength);
+				default:                     return P.Center;
+				}
+			};
+
 			const bool bSkipFirst = PathPoints.Num() > 0;
 			if (!bReversed) // 정방향
 				for (int32 i = (bSkipFirst ? 1 : 0); i < Pts.Num(); ++i)
-					PathPoints.Add(ToWorld.TransformPosition(Pts[i].Center));
+					PathPoints.Add(ToWorld.TransformPosition(PickLanePoint(Pts[i])));
 			else
 				for (int32 i = Pts.Num() - 1 - (bSkipFirst ? 1 : 0); i >= 0; --i)
-					PathPoints.Add(ToWorld.TransformPosition(Pts[i].Center));
+					PathPoints.Add(ToWorld.TransformPosition(PickLanePoint(Pts[i])));
 		}
 
 		// 역방향이였다면 Conn[0]으로 정방향이면 Conn[1]쪽으로 이동
@@ -164,7 +233,7 @@ void USplineFollowerComponent::BuildPath()
 	// 점이 3개 미만이면 곡선 보간이 불가능하므로 종료.
 	if (PathPoints.Num() < 3)
 	{
-		UE_LOG(LogDigitalTwinNbc, Warning, TEXT("SplineFollower: Too few path points (%d)"), PathPoints.Num());
+		UE_LOG(LogPathFollowingComponent, Warning, TEXT("SplineFollower: Too few path points (%d)"), PathPoints.Num());
 		return;
 	}
 
@@ -185,12 +254,46 @@ void USplineFollowerComponent::BuildPath()
 			{ BestSq = Sq; CurrentPointIndex = i; }
 	}
 	
+	// [추가] 차량 forward 와 경로 방향이 반대면 경로를 뒤집어 자연스럽게 출발
+	if (PathPoints.Num() >= 2)
+	{
+		const FVector CarForward = OwnerPawn->GetActorForwardVector();
+		const int32 NextIdx = bClosedLoop
+			? (CurrentPointIndex + 1) % PathPoints.Num()
+			: FMath::Min(CurrentPointIndex + 1, PathPoints.Num() - 1);
+
+		FVector PathDir = (PathPoints[NextIdx] - PathPoints[CurrentPointIndex]).GetSafeNormal();
+		
+		// 끝점 근처라 PathDir 이 너무 작으면 직전 점에서 가져옴
+		if (PathDir.IsNearlyZero() && CurrentPointIndex > 0)
+		{
+			PathDir = (PathPoints[CurrentPointIndex] - PathPoints[CurrentPointIndex - 1]).GetSafeNormal();
+		}
+
+		// 차량 forward 와 경로 진행 방향이 반대 (내적 < 0) → 경로 뒤집기
+		if (FVector::DotProduct(CarForward, PathDir) < 0.f)
+		{
+			Algo::Reverse(PathPoints);
+			CurrentPointIndex = PathPoints.Num() - 1 - CurrentPointIndex;
+
+			UE_LOG(LogDigitalTwinNbc, Log,
+				TEXT("SplineFollower[%s]: Path reversed — new start=%d / %d"),
+				*OwnerPawn->GetName(), CurrentPointIndex, PathPoints.Num());
+		}
+		else
+		{
+			UE_LOG(LogPathFollowingComponent, Log,
+				TEXT("SplineFollower[%s]: Path direction OK — start=%d / %d"),
+				*OwnerPawn->GetName(), CurrentPointIndex, PathPoints.Num());
+		}
+	}
+	
 	// 출발 직후부터 최대 속도를 향해 가속이 시작
 	SmoothedTargetSpeed = MaxSpeed;
 	// 틱 컴폰너트 활성화
 	SetComponentTickEnabled(true);
 
-	UE_LOG(LogDigitalTwinNbc, Log, TEXT("SplineFollower: %d pts, loop=%s, start=%d"),
+	UE_LOG(LogPathFollowingComponent, Log, TEXT("SplineFollower: %d pts, loop=%s, start=%d"),
 		PathPoints.Num(), bClosedLoop ? TEXT("Y") : TEXT("N"), CurrentPointIndex);
 }
 
@@ -246,7 +349,7 @@ void USplineFollowerComponent::ResampleCatmullRom()
 			Out.Add(EvalCatmullRom(P0, P1, P2, P3, (float)s / (float)Steps));
 	}
 
-	UE_LOG(LogDigitalTwinNbc, Log, TEXT("SplineFollower: Resampled %d -> %d pts"), N, Out.Num());
+	UE_LOG(LogPathFollowingComponent, Log, TEXT("SplineFollower: Resampled %d -> %d pts"), N, Out.Num());
 	PathPoints = MoveTemp(Out);
 }
 
@@ -311,6 +414,21 @@ float USplineFollowerComponent::EstimateCurvature(float AheadOffset) const
 	return FMath::Acos(FMath::Clamp(FVector::DotProduct(D1, D2), -1.f, 1.f));
 }
 
+float USplineFollowerComponent::EstimateSignedCurvature(float AheadOffset) const
+{
+	FVector D1, D2;
+	GetPointAhead(D1, AheadOffset);
+	GetPointAhead(D2, AheadOffset + CurvatureSampleSpan);
+
+	// 크기 (절대 곡률, 라디안)
+	const float Mag = FMath::Acos(FMath::Clamp(FVector::DotProduct(D1, D2), -1.f, 1.f));
+
+	// 부호: D1 × D2 의 Z 가 양수 = 좌회전 (CCW), 음수 = 우회전 (CW)
+	// 통일된 규약: 양수 = 오른쪽 커브, 음수 = 왼쪽 커브
+	const float CrossZ = D1.X * D2.Y - D1.Y * D2.X;
+	return Mag * (CrossZ < 0.f ? 1.f : -1.f);
+}
+
 float USplineFollowerComponent::ComputeCurveSpeedLimit(float Curvature) const
 {
 	if (Curvature <= KINDA_SMALL_NUMBER)
@@ -347,14 +465,8 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	// [추가] 자율주행 꺼져있으면 아무것도 안함
 	if (OwnerPawn->bAutoDrive == false) return;
 
-	// [추가] 라이다에서 장애물 거리 가져와서 500cm(5m) 이내면 자동 브레이크
-	ULidarSensorComponent* Lidar = OwnerPawn->FindComponentByClass<ULidarSensorComponent>();
-	if (Lidar && Lidar->GetClosestForwardDistance() < 500.f)
-	{
-		OwnerPawn->DoThrottle(0.f);
-		OwnerPawn->DoBrake(1.f);
-		return;
-	}
+	// 자식 클래스가 특수 상태(정지/재출발 등)를 처리하면 평소 주행 로직 건너뜀
+	if (HandleStateOverride()) return;
 
 	//////////////////////////////////////////////////////////////////////////////////////
 	// 현재 차량 구간이 어딘지 (CurrentPointIndex 업데이트)
@@ -387,7 +499,9 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	if (!bClosedLoop && CurrentPointIndex >= PathPoints.Num() - 2)
 	{
 		OwnerPawn->DoThrottle(0.f);
-		OwnerPawn->DoBrake(1.f);
+		OwnerPawn->DoSteering(0.f);                      // 핸들 중립
+		const float Speed = OwnerPawn->GetVelocity().Size();
+		OwnerPawn->DoBrake(Speed > 50.f ? 1.f : 0.f);         // 멈췄으면 brake 해제 (브레이크 계속 1이면 후진함)
 		return;
 	}
 
@@ -414,7 +528,20 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	// PosDelta만으로 제어하면 차량이 코너 안쪽으로 컷팅합니다. HdgDelta만으로는 경로에서 벗어났을 때 복귀를 못함.
 	
 	FVector PathDir;											// 그 지점에서의 경로 접선 방향
-	const FVector LAPos = GetPointAhead(PathDir, LADist);	// 앞쪽 목표 위치
+	FVector LAPos = GetPointAhead(PathDir, LADist);	// 앞쪽 목표 위치
+	
+	// [추가] 레이싱 라인 — 곡선 안쪽으로 목표점 시프트
+	{
+		const float SignedCurv = EstimateSignedCurvature(RacingLinePreviewDist);
+		// 경로 진행 방향의 "오른쪽" 단위 벡터 (UE 좌표계)
+		const FVector PathRight = FVector::CrossProduct(FVector::UpVector, PathDir).GetSafeNormal();
+		// 곡률을 -1~+1 로 정규화 
+		const float NormCurv = FMath::Clamp(SignedCurv * 2.f, -1.f, 1.f);
+		// 시프트 크기: 양수=오른쪽 (오른쪽 커브 안쪽), 음수=왼쪽
+		const float ShiftMag = NormCurv * RacingLineStrength * RacingLineMaxOffset;
+		// LAPos 를 안쪽으로 이동
+		LAPos += PathRight * ShiftMag;
+	}
 
 	// 목표점 방향과 차량 헤딩의 각도 차이 (목표점 보려면 얼마나 돌릴까) (위치)
 	const float PosDelta = FMath::FindDeltaAngleDegrees(  // 두 각도의 차이를 작은 각도로 반환
@@ -453,7 +580,10 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		YawCmd / MaxYawDelta - CrossErr * CrosstrackGain,
 		-1.f, 1.f
 	);
-	OwnerPawn->DoSteering(Steer);
+	// 자식 클래스가 더할 추가 보정 (예: 라이다 회피). 부모만 쓰면 0.
+	const float ExtraSteer = ComputeExtraSteer();
+	const float FinalSteer = FMath::Clamp(Steer + ExtraSteer, -1.f, 1.f);
+	OwnerPawn->DoSteering(FinalSteer);
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// 속도 명령

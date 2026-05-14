@@ -238,20 +238,20 @@ void ULidarSensorComponent::CollectAsyncResults()
 	
 	ScanPoints.Reset();
 	ScanIntensities.Reset();
-	
+
 	const float MaxRange = Config.MaxRange;
 	const float MinRange = Config.MinRange;
 	const float NoiseStd = Config.NoiseStdDev;
-	
+
 	for (int32 i = 0; i < PendingHandles.Num(); ++i)
 	{
 		FTraceDatum Data;
 		if (!World->QueryTraceData(PendingHandles[i], Data)) continue;
 		if (Data.OutHits.IsEmpty()) continue;
-		
+
 		const FHitResult& Hit = Data.OutHits[0];
 		if (!Hit.bBlockingHit || Hit.Distance < MinRange) continue;
-		
+
 		FVector HitPoint = Hit.ImpactPoint;
 		if (NoiseStd > 0.f && PendingWorldDirs.IsValidIndex(i))
 		{
@@ -270,39 +270,47 @@ void ULidarSensorComponent::CollectAsyncResults()
 	ScanPoints.Reserve(Config.GetTotalPoints());
 	ScanIntensities.Reserve(Config.GetTotalPoints());
 	
-	// 전방 장애물 경고 위한 변수를 계산.
-	// 전방 거리 초기화
-	float MinDist = Config.MaxRange;
+	// 전방 장애물 경고 위한 변수 계산 (전체 / 왼쪽 / 오른쪽 동시)
+	float MinDist      = Config.MaxRange;  // 전체 (기존)
+	float MinDistLeft  = Config.MaxRange;  // 왼쪽 절반 (LocalPt.Y < 0)
+	float MinDistRight = Config.MaxRange;  // 오른쪽 절반 (LocalPt.Y > 0)
 	const float HalfAngle = ForwardWarningAngle * 0.5f;
 
-	// 수집된 포인트들을 전수 조사
 	for (const FVector& Point : LastPointCloud.Points)
 	{
-		// 1. 월드 좌표를 센서 로컬 좌표로 변환
-		FVector LocalPt = PendingTransform.InverseTransformPosition(Point);
-        
-		// 2. 전방(X축)에 있는지 확인
-		if (LocalPt.X > 0)
+		// 월드 → 센서 로컬 좌표
+		const FVector LocalPt = PendingTransform.InverseTransformPosition(Point);
+
+		// 전방(+X) 만
+		if (LocalPt.X <= 0) continue;
+
+		// 부호 있는 각도 (왼쪽 = 음수, 오른쪽 = 양수, UE 좌표계)
+		const float AngleDegSigned = FMath::RadiansToDegrees(FMath::Atan2(LocalPt.Y, LocalPt.X));
+		const float AngleDeg       = FMath::Abs(AngleDegSigned);
+
+		// 전방 부채꼴 밖이면 스킵
+		if (AngleDeg > HalfAngle) continue;
+
+		const float Dist = LocalPt.Size();
+
+		// 전체 최솟값
+		if (Dist < MinDist) MinDist = Dist;
+
+		// 좌/우 최솟값 (UE 좌표계: +Y가 오른쪽, -Y가 왼쪽)
+		if (AngleDegSigned < 0.f)
 		{
-			// 3. 수평 각도 계산 (Atan2 사용)
-			float AngleDeg = FMath::Abs(FMath::RadiansToDegrees(FMath::Atan2(LocalPt.Y, LocalPt.X)));
-            
-			// 4. 설정한 범위 내에 있는지 확인
-			if (AngleDeg <= HalfAngle)
-			{
-				float Dist = LocalPt.Size(); // 혹은 LocalPt.X (직선 거리)
-				if (Dist < MinDist)
-				{
-					MinDist = Dist;
-				}
-			}
+			if (Dist < MinDistLeft) MinDistLeft = Dist;
+		}
+		else
+		{
+			if (Dist < MinDistRight) MinDistRight = Dist;
 		}
 	}
 
-	ClosestForwardDistance = MinDist;
-	
-	
-	
+	ClosestForwardDistance      = MinDist;
+	ClosestForwardLeftDistance  = MinDistLeft;
+	ClosestForwardRightDistance = MinDistRight;
+
 	if (BevRenderer)
 	{
 		BevRenderer->RenderPointCloud(LastPointCloud, PendingTransform);

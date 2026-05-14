@@ -30,6 +30,14 @@ public:
 	// 전방 60도 이내 가장 가까운 장애물 거리를 반환하는 Getter()함수 (cm단위) 
 	UFUNCTION(BlueprintPure, Category = "LidarSensor|Safety")
 	float GetClosestForwardDistance() const { return ClosestForwardDistance; }
+	
+	// 전방 60도 중 왼쪽 절반의 가장 가까운 장애물 거리 (cm)
+	UFUNCTION(BlueprintPure, Category = "LidarSensor|Safety")
+	float GetClosestForwardLeft() const { return ClosestForwardLeftDistance; }
+
+	// 전방 60도 중 오른쪽 절반의 가장 가까운 장애물 거리 (cm)
+	UFUNCTION(BlueprintPure, Category = "LidarSensor|Safety")
+	float GetClosestForwardRight() const { return ClosestForwardRightDistance; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -122,6 +130,12 @@ private:
 	// UI에서 이 값을 쓸 때는 센티미터(cm) 단위를 미터(m)로 바꾸기 위해 ClosestForwardDistance / 100.0f를 사용하세요.
 	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|Safety", meta = (AllowPrivateAccess = "true"))
 	float ClosestForwardDistance = 99999.0f; // 장애물이 없을 경우에 오작동이 발생하는 것을 방지하기 위해 큰 숫자 사용했습니다.
+	// [추가] 좌측 거리 파악
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|Safety", meta = (AllowPrivateAccess = "true"))
+	float ClosestForwardLeftDistance = 99999.0f;
+	// [추가] 우측 거리 파악
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|Safety", meta = (AllowPrivateAccess = "true"))
+	float ClosestForwardRightDistance = 99999.0f;
 
 	// 경고 판단을 위한 전방 각도 범위
 	UPROPERTY(EditAnywhere, Category = "LidarSensor|Safety")

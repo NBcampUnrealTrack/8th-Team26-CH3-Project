@@ -164,15 +164,24 @@ void ATeam26Pawn::ResetVehicle(const FInputActionValue& Value)
 }
 
 // [추가][이한길] 시작시 센서관련 초기화
+// [수정][백종태] 라이다 스캔은 PC 유무와 무관하게 시작. AI 차도 충돌 감지 필요.
 void ATeam26Pawn::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 라이다 스캔 시작 — BP 인스턴스에서 bAutoStartLidar 끄면 스킵
+	if (bAutoStartLidar && GetLidarSensor())
+	{
+		LidarSensor->StartScan();
+		UE_LOG(LogTemp, Warning, TEXT("Lidar Scan Started in Pawn BeginPlay (%s)"), *GetName());
+	}
+
+	// UI 셋업 — 플레이어 차만 (PC 있을 때)
 	if (ATeam26PlayerController* PC = Cast<ATeam26PlayerController>(GetController()))
 	{
 		if (GetCameraSensor())
 		{
 			UTextureRenderTarget2D* CameraRT = GetCameraSensor()->GetRenderTarget();
-            
 			if (CameraRT)
 			{
 				PC->ToggleSensorView(CameraRT);
@@ -182,10 +191,7 @@ void ATeam26Pawn::BeginPlay()
 		
 		if (GetLidarSensor())
 		{
-			LidarSensor->StartScan();
-			UE_LOG(LogTemp, Warning, TEXT("Lidar Scan Started in Pawn BeginPlay"));
 			UTexture2D* LidarBEVTexture = GetLidarSensor()->GetBevRenderTarget();
-            
 			if (LidarBEVTexture)
 			{
 				PC->ToggleLidarView(LidarBEVTexture);

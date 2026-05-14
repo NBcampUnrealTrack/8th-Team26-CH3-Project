@@ -58,6 +58,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AutoDrive")
 	bool bAutoDrive = true;
 
+	// [추가] BeginPlay 시 라이다 자동 스캔 여부. BP 인스턴스에서 끄면 해당 차량은 라이다 안 켬.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sensor")
+	bool bAutoStartLidar = true;
+
 protected:
 	void Steering(const FInputActionValue& Value);
 	void Throttle(const FInputActionValue& Value);
