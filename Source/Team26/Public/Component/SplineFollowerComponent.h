@@ -7,6 +7,18 @@
 #include "SplineFollowerComponent.generated.h"
 
 class ATeam26Pawn;
+class ALandscapeSplineActor;
+
+UENUM(BlueprintType)
+enum class ESplineLaneSide : uint8
+{
+	// 컨트롤 포인트 중앙선
+	Center  UMETA(DisplayName = "Center"),   
+	// 도로 왼쪽 가장자리
+	Left    UMETA(DisplayName = "Left"),    
+	// 도로 오른쪽 가장자리
+	Right   UMETA(DisplayName = "Right")     
+};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class TEAM26_API USplineFollowerComponent : public UActorComponent
@@ -24,6 +36,13 @@ protected:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType,
 	                           FActorComponentTickFunction* ThisTickFunction) override;
 
+	// 자식 클래스가 특수 상태(정지/재출발 등)를 처리하고 평소 주행 로직을 건너뛰고 싶을 때 override.
+	// true 반환 시 부모 Tick 의 나머지 주행 계산은 실행되지 않음.
+	virtual bool HandleStateOverride() { return false; }
+
+	// 자식 클래스가 기본 스티어에 추가로 더할 보정값(예: 라이다 회피)을 반환. 기본 0.
+	virtual float ComputeExtraSteer() const { return 0.f; }
+
 private:
 	// 맵에서 LandscapeSpline찾아 점 목록 만듦 (한번만)
 	void    BuildPath();
@@ -33,8 +52,11 @@ private:
 	FVector GetPointAhead(FVector& OutDirection, float Distance) const;
 	// 앞쪽 길이 얼마나 굽었는지 (라디안)
 	float   EstimateCurvature(float AheadOffset) const;
+	// 부호 있는 곡률 (양수=오른쪽 커브, 음수=왼쪽 커브, 라디안)
+	float	EstimateSignedCurvature(float AheadOffset) const;
 	// 곡률 -> 안전 속도 환산
 	float   ComputeCurveSpeedLimit(float Curvature) const;
+
 
 private:
 	//-------------------------------------
@@ -114,18 +136,66 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
 		meta=(AllowPrivateAccess="true"))
 	float ResampleSpacing = 50.f;
+	
+	//-------------------------------------
+	//------------ 레이싱 라인 ------------
+	//-------------------------------------
 
+	// 곡선 안쪽으로 붙는 강도 (0=중앙선 그대로, 1=최대 컷)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|RacingLine",
+		meta=(ClampMin="0.0", ClampMax="1.0", AllowPrivateAccess="true"))
+	float RacingLineStrength = 0.5f;
+
+	// 안쪽으로 붙는 최대 거리 (cm). 차선 폭 절반 정도가 적당
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|RacingLine",
+		meta=(AllowPrivateAccess="true"))
+	float RacingLineMaxOffset = 150.f;
+
+	// 곡률을 미리 보는 거리 (cm). 너무 짧으면 늦게 붙고, 너무 길면 미리 흔들림
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|RacingLine",
+		meta=(AllowPrivateAccess="true"))
+	float RacingLinePreviewDist = 2000.f;
+	
+	//-------------------------------------
+	//------------ 스플라인 지정 ------------
+	//-------------------------------------
+
+	// 우선순위 1: 특정 스플라인 직접 지정 (레벨 인스턴스에서만 설정 가능)
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "SplineFollower|Path",
+		meta=(AllowPrivateAccess="true"))
+	TObjectPtr<class ALandscapeSplineActor> AssignedSpline;
+	
+	// 우선순위 2: 태그로 매칭 (비어있으면 거리로 fallback). 예: "MainLane"
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
+		meta=(AllowPrivateAccess="true"))
+	FName AssignedSplineTag = NAME_None;
+
+	// 어느 차선으로 주행할지 (스플라인의 도로 폭 기준 중앙/좌/우)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
+		meta=(AllowPrivateAccess="true"))
+	ESplineLaneSide LaneSide = ESplineLaneSide::Center;
+
+	// LaneSide 가 Left/Right 일 때 가장자리로 얼마나 붙을지 (0=중앙, 1=완전 가장자리)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
+		meta=(ClampMin="0.0", ClampMax="1.0", AllowPrivateAccess="true",
+		      EditCondition="LaneSide != ESplineLaneSide::Center"))
+	float LaneSideStrength = 0.5f;
+
+
+protected:
+	// 자동차. 약한 참조. Pawn 파괴돼도 댕글링 포인터 안 됨. IsValid()로 체크
+	// 자식 클래스가 라이다 등 다른 컴포넌트에 접근할 수 있도록 protected.
+	UPROPERTY()
+	TWeakObjectPtr<ATeam26Pawn> OwnerPawn;
+
+private:
 	//-------------------------------------
 	//------------ 내부 상태 변수 ------------
 	//-------------------------------------
 
-	// 자동차. 약한 참조. Pawn 파괴돼도 댕글링 포인터 안 됨. IsValid()로 체크
-	UPROPERTY()
-	TWeakObjectPtr<ATeam26Pawn> OwnerPawn;
-	
-private:
 	// 만들어진 경로 점들 (월드 좌표)
 	TArray<FVector> PathPoints;
+
 	// 차가 지금 몇 번째 점 부근에 있는지
 	int32 CurrentPointIndex = 0;
 	// 경로가 닫힌 루프인지 (트랙처럼 한 바퀴)
