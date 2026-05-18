@@ -16,7 +16,15 @@ public class Team26 : ModuleRules
 			"EnhancedInput", 
 			"ChaosVehicles", 
 			"PhysicsCore",
-			"Landscape"
+			"Landscape" ,
+			"UMG",
+			"GeoReferencing"
+		});
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"Slate",
+			"SlateCore",
 		});
 	}
 }
