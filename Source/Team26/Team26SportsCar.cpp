@@ -52,12 +52,21 @@ ATeam26SportsCar::ATeam26SportsCar()
 	GetChaosVehicleMovement()->TransmissionSetup.GearChangeTime = 0.2f;
 	GetChaosVehicleMovement()->TransmissionSetup.TransmissionEfficiency = 0.9f;
 
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios.SetNum(5);
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[0] = 4.25f;
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[1] = 2.52f;
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[2] = 1.66f;
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[3] = 1.22f;
-	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[4] = 1.0f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios.SetNum(6);
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[0] = 3.80f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[1] = 2.60f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[2] = 1.90f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[3] = 1.45f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[4] = 1.15f;
+//	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[5] = 0.92f;
+
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios.SetNum(6);
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[0] = 4.00f;
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[1] = 2.75f;
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[2] = 2.00f;
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[3] = 1.50f;
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[4] = 1.15f;
+	GetChaosVehicleMovement()->TransmissionSetup.ForwardGearRatios[5] = 0.90f;
 
 	GetChaosVehicleMovement()->TransmissionSetup.ReverseGearRatios.SetNum(1);
 	GetChaosVehicleMovement()->TransmissionSetup.ReverseGearRatios[0] = 4.04f;

@@ -88,10 +88,17 @@ void ATeam26PlayerController::Tick(float Delta)
 
 	if (IsValid(VehiclePawn) && IsValid(VehicleUI))
 	{
-		VehicleUI->UpdateSpeed(VehiclePawn->GetChaosVehicleMovement()->GetForwardSpeed());
-		VehicleUI->UpdateGear(VehiclePawn->GetChaosVehicleMovement()->GetCurrentGear());
+		UChaosWheeledVehicleMovementComponent* VehicleMovement = VehiclePawn->GetChaosVehicleMovement();
+
+		if (VehicleMovement)
+		{
+			VehicleUI->UpdateSpeed(VehicleMovement->GetForwardSpeed());
+			VehicleUI->UpdateGear(VehicleMovement->GetCurrentGear());
+			VehicleUI->UpdateRPM(VehicleMovement->GetEngineRotationSpeed());
+		}
 	}
 }
+
 // [추가][이한길] 센서뷰 위젯 토글 관련 함수 4개 정의.
 void ATeam26PlayerController::ToggleSensorView(UTextureRenderTarget2D* InCameraRT)
 {
