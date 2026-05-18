@@ -17,3 +17,8 @@ void UTeam26UI::UpdateGear(int32 NewGear)
 	// call the Blueprint handler
 	OnGearUpdate(NewGear);
 }
+
+void UTeam26UI::UpdateRPM(float NewRPM)
+{
+	OnRPMUpdate(NewRPM);
+}

@@ -29,6 +29,9 @@ public:
 
 	/** Called to update the gear display */
 	void UpdateGear(int32 NewGear);
+	
+	/** Called to update the RPM needle */
+	void UpdateRPM(float NewRPM);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = UI)
 	void ToggleControlPanel();
@@ -42,4 +45,7 @@ protected:
 	/** Implemented in Blueprint to display the new gear */
 	UFUNCTION(BlueprintImplementableEvent, Category = Vehicle)
 	void OnGearUpdate(int32 NewGear);
+	
+	UFUNCTION(BlueprintImplementableEvent, Category = Vehicle)
+	void OnRPMUpdate(float NewRPM);
 };
