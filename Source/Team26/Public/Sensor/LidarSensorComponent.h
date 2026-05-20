@@ -109,6 +109,13 @@ private:
 	UPROPERTY()
 	TObjectPtr<ULidarBevRenderer> BevRenderer;
 	
+	// DBSCAN 제어 파라미터
+	UPROPERTY(EditAnywhere, Category = "Lidar|DBSCAN", meta = (ClampMin = "1.0"))
+	float DbscanEpsilon = 50.0f; // 이웃 인정 거리 (cm 단위, 기본 50cm)
+
+	UPROPERTY(EditAnywhere, Category = "Lidar|DBSCAN", meta = (ClampMin = "1"))
+	int32 DbscanMinPoints = 5;   // 군집 인정 최소 포인트 개수
+	
 private:
 	FTimerHandle ScanTimerHandle;
 	TArray<FTraceHandle> PendingHandles;
