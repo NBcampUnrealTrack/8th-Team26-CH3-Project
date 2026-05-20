@@ -20,6 +20,17 @@ TArray<FDetectedObject> ULidarClusterer::PerformDBSCAN(const TArray<FVector>& In
         Dataset[i].State = EClusterState::Unvisited;
         Dataset[i].ClusterId = -1;
     }
+    
+    float GridSize = Epsilon; // 격자 한 칸의 크기를 에프실론 거리로 설정하면 효율적임.
+    TMap<FGridKey, TArray<int32>> GridMap;
+
+    for (int32 i = 0; i < Dataset.Num(); ++i)
+    {
+        int32 GridX = FMath::FloorToInt(Dataset[i].Location.X / GridSize);
+        int32 GridY = FMath::FloorToInt(Dataset[i].Location.Y / GridSize);
+    
+        GridMap.FindOrAdd(FGridKey(GridX, GridY)).Add(i);
+    }
 
     int32 CurrentClusterId = 0;
 
@@ -34,7 +45,7 @@ TArray<FDetectedObject> ULidarClusterer::PerformDBSCAN(const TArray<FVector>& In
         Dataset[i].State = EClusterState::Visited;
 
         // 내 주변 이웃 찾기
-        TArray<int32> NeighborIndices = RegionQuery(Dataset, i, Epsilon);
+        TArray<int32> NeighborIndices = RegionQueryGrid(Dataset, GridMap, i, Epsilon, GridSize);
 
         if (NeighborIndices.Num() < MinPoints)
         {
@@ -44,7 +55,7 @@ TArray<FDetectedObject> ULidarClusterer::PerformDBSCAN(const TArray<FVector>& In
         {
             // 새로운 군집 생성 및 확장 시작
             CurrentClusterId++;
-            if (ExpandCluster(Dataset, i, NeighborIndices, CurrentClusterId, Epsilon, MinPoints))
+            if (ExpandCluster(Dataset, GridMap, i, NeighborIndices, CurrentClusterId, Epsilon, MinPoints, GridSize))
             {
                 UE_LOG(LogTemp, Log, TEXT("Cluster %d Created Successfully!"), CurrentClusterId);
             }
@@ -76,52 +87,92 @@ TArray<FDetectedObject> ULidarClusterer::PerformDBSCAN(const TArray<FVector>& In
             ObjectMap.Add(Id, NewObject);
         }
 
-        // 해당 클러스터 오브젝트의 레퍼런스를 가져옴
-        FDetectedObject& TargetObj = ObjectMap[Id];
+        // 해당 클러스터 오브젝트를 가리키는 포인터를 가져옴
+        FDetectedObject* TargetObj = ObjectMap.Find(Id);
 
-        // 1) 물체를 구성하는 포인트 배열에 원본 좌표 추가
-        TargetObj.Points.Add(DbscanPoint.Location);
+        if (TargetObj)
+        {
+            // 1) 물체를 구성하는 포인트 배열에 원본 좌표 추가
+            TargetObj->Points.Add(DbscanPoint.Location);
 
-        // 2) 바운딩 박스에 포인트를 추가하여 실시간으로 크기를 확장
-        TargetObj.BoundingBox.AddPoint(DbscanPoint.Location);
+            // 2) 바운딩 박스에 포인트를 추가하여 실시간으로 크기를 확장
+            TargetObj->BoundingBox += DbscanPoint.Location;
+        }
+    
     }
 
-    // TMap에 예쁘게 모인 오브젝트들을 최종 반환용 TArray로 변환
+    // TMap에 모인 오브젝트들을 최종 반환용 TArray로 변환
     ObjectMap.GenerateValueArray(DetectedObjects);
 
     return DetectedObjects;
 }
 
-TArray<int32> ULidarClusterer::RegionQuery(const TArray<FDbscanPoint>& Dataset, int32 TargetIdx, float Epsilon)
+TArray<int32> ULidarClusterer::RegionQueryGrid(const TArray<FDbscanPoint>& Dataset, const TMap<FGridKey, TArray<int32>>& GridMap, int32 TargetIdx, float Epsilon, float GridSize)
 {
     TArray<int32> NeighborIndices;
     const FVector TargetLoc = Dataset[TargetIdx].Location;
-    const float EpsSquared = FMath::Square(Epsilon); // ⭐️ 성능 최적화: 제곱근 연산 회피
+    const float EpsSquared = FMath::Square(Epsilon); // 성능 최적화: 제곱근 연산 회피
 
-    // [⚠️ 주의] 현재 구조는 O(N^2) 전체 순회입니다. 
-    // 나중에는 이 부분을 격자(Grid) 검색이나 Octree 검색으로 교체해야 프레임 드랍이 없습니다.
-    for (int32 i = 0; i < Dataset.Num(); ++i)
+    // 타겟 포인트가 속한 격자 좌표 계산
+    int32 TargetGridX = FMath::FloorToInt(TargetLoc.X / GridSize);
+    int32 TargetGridY = FMath::FloorToInt(TargetLoc.Y / GridSize);
+
+    // 내 중심 칸을 포함한 주변 3x3 (총 9칸) 격자만 조사
+    for (int32 x = -1; x <= 1; ++x)
     {
-        if (FVector::DistSquared(TargetLoc, Dataset[i].Location) <= EpsSquared)
+        for (int32 y = -1; y <= 1; ++y)
         {
-            NeighborIndices.Add(i);
+            FGridKey NeighborKey(TargetGridX + x, TargetGridY + y);
+            
+            if (const TArray<int32>* PointsInGrid = GridMap.Find(NeighborKey))
+            {
+                // 해당 격자 칸 안에 있는 포인트들만 거리 검사
+                for (int32 Index : *PointsInGrid)
+                {
+                    if (FVector::DistSquared(TargetLoc, Dataset[Index].Location) <= EpsSquared)
+                    {
+                        NeighborIndices.Add(Index);
+                    }
+                }
+            }
         }
     }
     return NeighborIndices;
 }
 
-bool ULidarClusterer::ExpandCluster(TArray<FDbscanPoint>& Dataset, int32 TargetIdx, const TArray<int32>& NeighborIndices, int32 ClusterId, float Epsilon, int32 MinPoints)
+bool ULidarClusterer::ExpandCluster(TArray<FDbscanPoint>& Dataset, 
+        const TMap<FGridKey, TArray<int32>>& GridMap,
+        int32 TargetIdx, 
+        const TArray<int32>& NeighborIndices, 
+        int32 ClusterId, 
+        float Epsilon, 
+        int32 MinPoints,
+        float GridSize
+    )
 {
     Dataset[TargetIdx].ClusterId = ClusterId;
 
+    // [수정] 중복 체크를 고속으로 하기 위해 TSet(집합)을 활용.
+    TSet<int32> SeedsSet(NeighborIndices);
     // 이웃들을 검사할 큐(Queue)처럼 사용할 동적 배열 생성
-    TArray<int32> Seeds = NeighborIndices;
+    TArray<int32> SeedsArray = NeighborIndices;
 
-    for (int32 i = 0; i < Seeds.Num(); ++i)
+    // 안전장치: 라이다 포인트 총 개수보다 많이 도는 것은 논리적으로 불가능하므로 맥스 값 설정
+    const int32 MaxSafetyIteration = Dataset.Num() * 2;
+    int32 IterationCount = 0;
+    
+    for (int32 i = 0; i < SeedsArray.Num(); ++i)
     {
-        int32 CurrentSeedIdx = Seeds[i];
+        // 안전장치. (혹시 모를 상황에도 절대 엔진이 크래시 나거나 멈추지 않음)
+        if (++IterationCount > MaxSafetyIteration)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("DBSCAN ExpandCluster: 무한 루프 방지 안전핀이 작동했습니다."));
+            break;
+        }
+        
+        int32 CurrentSeedIdx = SeedsArray[i];
 
-        // 노이즈로 분류되었던 포인트라면, 리더는 못 되어도 이 군집의 '경계 포인트'로는 합류 가능
+        // 노이즈로 분류되었던 포인트라면, 리더는 못 되어도 이 군집의 경계 포인트로는 합류 가능
         if (Dataset[CurrentSeedIdx].State == EClusterState::Noise)
         {
             Dataset[CurrentSeedIdx].State = EClusterState::Visited;
@@ -137,16 +188,18 @@ bool ULidarClusterer::ExpandCluster(TArray<FDbscanPoint>& Dataset, int32 TargetI
         Dataset[CurrentSeedIdx].ClusterId = ClusterId;
 
         // 이웃의 이웃을 찾음 (밀도 확장)
-        TArray<int32> CurrentSeedNeighbors = RegionQuery(Dataset, CurrentSeedIdx, Epsilon);
+        TArray<int32> CurrentSeedNeighbors = RegionQueryGrid(Dataset, GridMap, CurrentSeedIdx, Epsilon, GridSize);
 
         if (CurrentSeedNeighbors.Num() >= MinPoints)
         {
             // 새로운 핵심 포인트를 찾았으므로, 검사 대기열(Seeds)에 이웃들을 추가
             for (int32 NeighborIdx : CurrentSeedNeighbors)
             {
-                if (!Seeds.Contains(NeighborIdx)) // 중복 방지
+                // TSet의 Contains는 O(1)이라 초고속이며, 중복을 허용하지 않는다.
+                if (!SeedsSet.Contains(NeighborIdx))
                 {
-                    Seeds.Add(NeighborIdx);
+                    SeedsSet.Add(NeighborIdx);
+                    SeedsArray.Add(NeighborIdx); // 안전하게 순회용 배열에도 추가
                 }
             }
         }

@@ -3,11 +3,13 @@
 
 #include "Sensor/LidarSensorComponent.h"
 #include "Sensor/LidarBevRenderer.h"
+#include "Sensor/LidarClusterer.h"
 #include "Engine/World.h"
 #include "HAL/PlatformFileManager.h"
 #include "Misc/Paths.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h" // DragDebugLine 사용위한 헤더.
+#include "Sensor/FLidarPoint.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLidarSensor, Log, All);
 
@@ -61,6 +63,7 @@ void ULidarSensorComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 		//SetComponentTickEnabled(false); 라이다 센서가 지속적으로 작동을 안해서 주석처리함.
 	}
 	
+	/* 이제 필요 없어보여서 주석처리했습니다. 필요시 다시 키셔도 됩니다.
 	// 라이다 센서 감지 문제 확인 위한 디버그 라인
 	FVector Start = GetComponentLocation();
 	FVector ForwardVector = GetForwardVector();
@@ -78,6 +81,7 @@ void ULidarSensorComponent::TickComponent(float DeltaTime, ELevelTick TickType,
     
 	// DrawDebugLine(월드, 시작점, 끝점, 색상, 지속여부, 수명, 우선순위, 두께)
 	DrawDebugLine(GetWorld(), Start, End, LineColor, false, -1.0f, 0, 2.0f);
+	*/
 }
 
 #if WITH_EDITOR
@@ -337,6 +341,47 @@ void ULidarSensorComponent::CollectAsyncResults()
 	ClosestForwardLeftDistance  = MinDistLeft;
 	ClosestForwardRightDistance = MinDistRight;
 
+	
+	// 수집 완료된 LastPointCloud.Points 기반 객체 탐지 및 3D 시각화.
+	if (LastPointCloud.Points.Num() > 0)
+	{
+		// 라이브러리를 정적(Static) 호출하여 물체 분리 및 바운딩 박스 계산
+		TArray<FDetectedObject> DetectedObjects = ULidarClusterer::PerformDBSCAN(LastPointCloud.Points, DbscanEpsilon, DbscanMinPoints);
+
+		// 분리된 물체들을 순회하며 3D 뷰포트에 오렌지색 상자 그리기
+		for (const FDetectedObject& Obj : DetectedObjects)
+		{
+			FVector Center = Obj.BoundingBox.GetCenter();
+			FVector Extent = Obj.BoundingBox.GetExtent();
+
+			// 3D 바운딩 박스 드로잉
+			DrawDebugBox(
+				GetWorld(),
+				Center,
+				Extent,
+				FColor::Orange, // 검출된 물체는 오렌지색
+				false,          // 영구 지속 안함
+				0.05f,          // 수명 (프레임 단위 갱신을 위해 짧게 유지)
+				0,              // 우선순위
+				2.0f            // 선 두께
+			);
+
+			// 물체 중심점 상단에 ID 및 포인트 개수 텍스트 띄우기
+			FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 20.f);
+			DrawDebugString(
+				GetWorld(), 
+				TextLocation, 
+				FString::Printf(TEXT("ID: %d (Pts: %d)"), Obj.Id, Obj.Points.Num()), 
+				nullptr, 
+				FColor::White, 
+				0.05f, 
+				false, 
+				1.1f
+			);
+		}
+	}
+	
+	// BEV 렌더링 및 데이터 저장.
 	if (BevRenderer)
 	{
 		BevRenderer->RenderPointCloud(LastPointCloud, PendingTransform);

@@ -16,7 +16,7 @@ enum class EClusterState : uint8
 struct FDbscanPoint
 {
 	FVector Location;
-	int32 OriginalIndex; // 원본 배열로 역추적하기 위한 인덱스
+	int32 OriginalIndex = -1; // 원본 배열로 역추적하기 위한 인덱스
 	EClusterState State = EClusterState::Unvisited;
 	int32 ClusterId = -1; // -1은 아직 어떤 그룹에도 속하지 않음을 의미
 };
@@ -27,14 +27,32 @@ struct FDetectedObject
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadOnly, Category = "Lidar")
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|DBSCAN")
 	int32 Id;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Lidar")
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|DBSCAN")
 	TArray<FVector> Points; // 이 물체를 구성하는 포인트들
 
-	UPROPERTY(BlueprintReadOnly, Category = "Lidar")
+	UPROPERTY(BlueprintReadOnly, Category = "LidarSensor|DBSCAN")
 	FBox BoundingBox; // 물체의 3D 박스 범위
 };
 
+// 격자 좌표를 표현하기 위한 간단한 키 구조체
+struct FGridKey
+{
+	int32 X;
+	int32 Y;
 
+	FGridKey(int32 InX, int32 InY) : X(InX), Y(InY) {}
+
+	bool operator==(const FGridKey& Other) const
+	{
+		return X == Other.X && Y == Other.Y;
+	}
+};
+
+// TMap의 Key로 사용하기 위한 해시 함수 정의
+FORCEINLINE uint32 GetTypeHash(const FGridKey& Key)
+{
+	return HashCombine(GetTypeHash(Key.X), GetTypeHash(Key.Y));
+}
