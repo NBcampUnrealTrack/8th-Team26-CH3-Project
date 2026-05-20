@@ -1,14 +1,19 @@
-
 #include "DataLogger/DataLogger.h"
+#include "Containers/StringConv.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
+#include "HAL/FileManager.h"
 #include "HAL/PlatformFileManager.h"
-#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Replay/ReplayFileLibrarys.h"
+#include "Replay/ReplayGameInstanceSubsystem.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogDataLogger, Log, All);
 
 UDataLogger::UDataLogger()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UDataLogger::BeginPlay()
@@ -56,22 +61,59 @@ void UDataLogger::StartRecording()
 		return;
 	}
 
-	CreateCsvFile();
+	if (IsCurrentLevelBlocked())
+	{
+		UE_LOG(LogDataLogger, Log, TEXT("Data logging is disabled on this level."));
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			if (UReplayGameInstanceSubsystem* ReplaySubsystem = GameInstance->GetSubsystem<UReplayGameInstanceSubsystem>())
+			{
+				ReplaySubsystem->ClearLastRecordedReplayPath();
+			}
+		}
+	}
+
+	if (!CreateCsvFile())
+	{
+		return;
+	}
+
 	bIsRecording = true;
+	SetComponentTickEnabled(true);
 	TimeSinceLastSave = 0.0f;
 	ElapsedRecordingTime = 0.0f;
+	WrittenSampleCount = 0;
 }
 
 void UDataLogger::StopRecording()
 {
+	if (!bIsRecording && !CsvArchive)
+	{
+		return;
+	}
+
 	bIsRecording = false;
+	SetComponentTickEnabled(false);
+	CloseCsvFile();
+	PublishLastRecordedReplayPath();
 }
 
-void UDataLogger::CreateCsvFile()
+bool UDataLogger::CreateCsvFile()
 {
-	const FString OutputDir = FPaths::Combine(FPaths::ProjectDir(), TEXT("Output"));
+	CloseCsvFile();
+
+	const FString OutputDir = UReplayFileLibrary::GetReplayOutputDirectory();
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	PlatformFile.CreateDirectoryTree(*OutputDir);
+	if (!PlatformFile.CreateDirectoryTree(*OutputDir))
+	{
+		UE_LOG(LogDataLogger, Error, TEXT("Failed to create output directory: %s"), *OutputDir);
+		return false;
+	}
 
 	const FDateTime Now = FDateTime::Now();
 	const FString FileName = FString::Printf(
@@ -85,18 +127,44 @@ void UDataLogger::CreateCsvFile()
 	const FString Header =
 		TEXT("Timestamp,World_X,World_Y,World_Z,UTM_Easting,UTM_Northing,UTM_Zone,Velocity_kmh,Yaw\n"
 	);
-	FFileHelper::SaveStringToFile(Header, *CsvFilePath,
-		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM
-	);
 
-	UE_LOG(LogTemp, Log, TEXT("[DataLogger] Recording to: %s  (%.1f Hz)"), *CsvFilePath, SaveFrequencyHz);
+	CsvArchive.Reset(IFileManager::Get().CreateFileWriter(*CsvFilePath));
+	if (!CsvArchive)
+	{
+		UE_LOG(LogDataLogger, Error, TEXT("Failed to open csv for writing: %s"), *CsvFilePath);
+		CsvFilePath.Reset();
+		return false;
+	}
+
+	if (!WriteCsvLine(Header))
+	{
+		CloseCsvFile();
+		CsvFilePath.Reset();
+		return false;
+	}
+
+	UE_LOG(LogDataLogger, Log, TEXT("Recording to: %s (%.1f Hz)"), *CsvFilePath, SaveFrequencyHz);
+	return true;
+}
+
+void UDataLogger::CloseCsvFile()
+{
+	if (!CsvArchive)
+	{
+		return;
+	}
+
+	CsvArchive->Flush();
+	CsvArchive.Reset();
 }
 
 void UDataLogger::AppendRow()
 {
 	const AActor* Owner = GetOwner();
 	if (!Owner)
+	{
 		return;
+	}
 
 	const FVector WorldLoc = Owner->GetActorLocation();        // cm
 	const FRotator WorldRot = Owner->GetActorRotation();
@@ -118,11 +186,77 @@ void UDataLogger::AppendRow()
 		Yaw
 	);
 
-	FFileHelper::SaveStringToFile(Row, *CsvFilePath,
-		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM,
-		&IFileManager::Get(),
-		EFileWrite::FILEWRITE_Append
-	);
+	if (!WriteCsvLine(Row))
+	{
+		UE_LOG(LogDataLogger, Error, TEXT("Stopping recording after csv write failure: %s"), *CsvFilePath);
+		StopRecording();
+		return;
+	}
+
+	++WrittenSampleCount;
+}
+
+bool UDataLogger::WriteCsvLine(const FString& Line)
+{
+	if (!CsvArchive)
+	{
+		return false;
+	}
+
+	FTCHARToUTF8 ConvertedLine(*Line);
+	CsvArchive->Serialize(const_cast<ANSICHAR*>(ConvertedLine.Get()), ConvertedLine.Length());
+	CsvArchive->Flush();
+	return !CsvArchive->IsError();
+}
+
+bool UDataLogger::IsCurrentLevelBlocked() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	const FString MapName = World->GetMapName();
+	for (const FName& DisabledLevel : AutoLoggingDisabledLevels)
+	{
+		if (!DisabledLevel.IsNone() && MapName.EndsWith(DisabledLevel.ToString()))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void UDataLogger::PublishLastRecordedReplayPath() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	UGameInstance* GameInstance = World->GetGameInstance();
+	if (!GameInstance)
+	{
+		return;
+	}
+
+	UReplayGameInstanceSubsystem* ReplaySubsystem = GameInstance->GetSubsystem<UReplayGameInstanceSubsystem>();
+	if (!ReplaySubsystem)
+	{
+		return;
+	}
+
+	if (WrittenSampleCount > 0 && !CsvFilePath.IsEmpty() && FPaths::FileExists(CsvFilePath))
+	{
+		ReplaySubsystem->SetLastRecordedReplayPath(CsvFilePath);
+		UE_LOG(LogDataLogger, Log, TEXT("Last recorded replay path: %s"), *CsvFilePath);
+		return;
+	}
+
+	ReplaySubsystem->ClearLastRecordedReplayPath();
 }
 
 void UDataLogger::WorldToUtm(const FVector& WorldLocation,
