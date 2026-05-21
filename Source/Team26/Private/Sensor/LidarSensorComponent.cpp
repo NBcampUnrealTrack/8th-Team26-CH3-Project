@@ -346,14 +346,48 @@ void ULidarSensorComponent::CollectAsyncResults()
 	if (LastPointCloud.Points.Num() > 0)
 	{
 		// 라이브러리를 정적(Static) 호출하여 물체 분리 및 바운딩 박스 계산
-		TArray<FDetectedObject> DetectedObjects = ULidarClusterer::PerformDBSCAN(LastPointCloud.Points, DbscanEpsilon, DbscanMinPoints);
+		TArray<FDetectedObject> RawObjects  = ULidarClusterer::PerformDBSCAN(LastPointCloud.Points, DbscanEpsilon, DbscanMinPoints);
 
+		// [박스 병합 적용] 0.4m(40.f) 이내로 가까운 상자들은 하나로 합치기
+		TArray<FDetectedObject> DetectedObjects = MergeCloseBoxes(RawObjects, 40.0f);
+		
+		// 프로젝트에 배치된 장애물들의 측정값 범위를 리스트로 등록 (장애물이 추가되면 여기에 추가하면됨.)
+		static const TArray<FLidarClassificationRule> ClassRules = {
+			{ TEXT("Cone/Drum"),  50.f,  120.f,  0.f },    // 높이 50~120cm 사이의 서 있는 오브젝트
+			{ TEXT("Barricade"),  80.f,  120.f,  120.f },  // 높이 80~120cm이면서 가로로 긴(120cm 이상) 오브젝트
+			{ TEXT("Big Truck"),  180.f, 500.f,  200.f }   // 높이 1.8m 이상의 거대 오브젝트
+		};
+		
 		// 분리된 물체들을 순회하며 3D 뷰포트에 오렌지색 상자 그리기
 		for (const FDetectedObject& Obj : DetectedObjects)
 		{
 			FVector Center = Obj.BoundingBox.GetCenter();
 			FVector Extent = Obj.BoundingBox.GetExtent();
 
+			// 상자 크기 계산
+			float SizeX = Extent.X * 2.0f;
+			float SizeY = Extent.Y * 2.0f;
+			float SizeZ = Extent.Z * 2.0f;
+			float MaxWidth = FMath::Max(SizeX, SizeY);
+			
+			// 크기 기반 물체 종류 판단.
+			FString ObjectType = TEXT("Unknown");
+
+			// 등록된 규칙들을 순회하며 매칭되는 체급 찾기
+			for (const FLidarClassificationRule& Rule : ClassRules)
+			{
+				if (SizeZ >= Rule.MinZ && SizeZ <= Rule.MaxZ && MaxWidth >= Rule.MinWidth)
+				{
+					ObjectType = Rule.ClassName;
+					break; // 매칭되는 것을 찾았으면 규칙 순회 종료
+				}
+			}
+			
+			// 차량으로부터 물체 중심까지의 거리 계산.
+			FVector SensorLocation = GetComponentLocation();
+			// cm 단위를 미터(m) 단위로 변환하기 위해 100.0f로 나눈다.
+			float DistanceInMeters = FVector::Dist(SensorLocation, Center) / 100.0f;
+			
 			// 3D 바운딩 박스 드로잉
 			if (bShowDebugBox)
 			{
@@ -374,10 +408,18 @@ void ULidarSensorComponent::CollectAsyncResults()
 			if (bShowDebugString)
 			{
 				FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 20.f);
+				
+				// "물체종류 거리m (포인트수)" 형태로 문자열 포맷팅
+				// %.1f를 쓰면 소수점 첫째 짜리까지만 출력됨 (예: 12.4m)
+				FString DisplayText = FString::Printf(
+					TEXT("%s %.1fm"), 
+					*ObjectType, 
+					DistanceInMeters
+				);
 				DrawDebugString(
 					GetWorld(), 
 					TextLocation, 
-					FString::Printf(TEXT("ID: %d (Pts: %d)"), Obj.Id, Obj.Points.Num()), 
+					DisplayText, 
 					nullptr, 
 					FColor::White, 
 					DebugLifeTime, 
@@ -472,6 +514,55 @@ void ULidarSensorComponent::RebuildDirectionCache()
 	}
 	
 	bDirectionsDirty = false;
+}
+
+TArray<FDetectedObject> ULidarSensorComponent::MergeCloseBoxes(const TArray<FDetectedObject>& SrcObjects,
+	float MergeDistanceThreshold)
+{
+	if (SrcObjects.Num() <= 1) return SrcObjects;
+
+	TArray<FDetectedObject> MergedList = SrcObjects;
+	bool bMadeMarqe = true;
+
+	// 더 이상 합쳐질 박스가 없을 때까지 반복 검사 (Weld 작업)
+	while (bMadeMarqe)
+	{
+		bMadeMarqe = false;
+		TArray<FDetectedObject> TempList;
+		TSet<int32> SkipIndices;
+
+		for (int32 i = 0; i < MergedList.Num(); ++i)
+		{
+			if (SkipIndices.Contains(i)) continue;
+
+			FDetectedObject Current = MergedList[i];
+
+			for (int32 j = i + 1; j < MergedList.Num(); ++j)
+			{
+				if (SkipIndices.Contains(j)) continue;
+
+				// 두 박스 사이의 가장 가까운 최단 거리 계산 (언리얼 내장 함수)
+				float BoxDistance = Current.BoundingBox.ComputeSquaredDistanceToBox(MergedList[j].BoundingBox);
+
+				// 지정한 병합 거리(예: 150cm = 1.5m)보다 가깝다면 합치기!
+				if (BoxDistance < FMath::Square(MergeDistanceThreshold))
+				{
+					// Current 박스에 j번째 박스의 영역을 누적 합산(AABB 확장)
+					Current.BoundingBox += MergedList[j].BoundingBox;
+
+					// 내부 포인트 개수도 합쳐줌
+					Current.Points.Append(MergedList[j].Points);
+
+					SkipIndices.Add(j);
+					bMadeMarqe = true; // 합쳐졌으므로 루프 재진행 마킹
+				}
+			}
+			TempList.Add(Current);
+		}
+		MergedList = TempList;
+	}
+
+	return MergedList;
 }
 
 
