@@ -56,3 +56,11 @@ FORCEINLINE uint32 GetTypeHash(const FGridKey& Key)
 {
 	return HashCombine(GetTypeHash(Key.X), GetTypeHash(Key.Y));
 }
+
+// 물체 분류위한 규칙 구조체.
+struct FLidarClassificationRule
+{
+	FString ClassName;   // 화면에 띄울 이름 (예: "Drum", "Barricade")
+	float MinZ, MaxZ;    // 높이 범위 (cm)
+	float MinWidth;      // 최소 가로폭 (X나 Y 중 더 긴 쪽 기준)
+};

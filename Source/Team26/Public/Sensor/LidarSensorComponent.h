@@ -7,6 +7,7 @@
 #include "Team26CameraSensorTypes.h"
 #include "LidarSensorComponent.generated.h"
 
+struct FDetectedObject;
 class ULidarBevRenderer;
 class UTextureRenderTarget2D;
 
@@ -110,10 +111,10 @@ private:
 	TObjectPtr<ULidarBevRenderer> BevRenderer;
 	
 	// DBSCAN 제어 파라미터
-	UPROPERTY(EditAnywhere, Category = "Lidar|DBSCAN", meta = (ClampMin = "1.0"))
-	float DbscanEpsilon = 50.0f; // 이웃 인정 거리 (cm 단위, 기본 50cm)
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|DBSCAN", meta = (ClampMin = "1.0"))
+	float DbscanEpsilon = 30.0f; // 이웃 인정 거리 (cm 단위, 기본 50cm)
 
-	UPROPERTY(EditAnywhere, Category = "Lidar|DBSCAN", meta = (ClampMin = "1"))
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|DBSCAN", meta = (ClampMin = "1"))
 	int32 DbscanMinPoints = 5;   // 군집 인정 최소 포인트 개수
 	
 private:
@@ -147,6 +148,9 @@ private:
 	// 경고 판단을 위한 전방 각도 범위
 	UPROPERTY(EditAnywhere, Category = "LidarSensor|Safety")
 	float ForwardWarningAngle = 60.0f;
+	
+	// DBSCAN 결과를 받아서 가까운 객체끼리 상자를 합쳐주는 후처리 함수
+	TArray<FDetectedObject> MergeCloseBoxes(const TArray<FDetectedObject>& SrcObjects, float MergeDistanceThreshold);
 	
 public:
 	// 디버그 콜리전, ID 텍스트 ON/OFF
