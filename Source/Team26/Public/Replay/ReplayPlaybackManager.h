@@ -16,15 +16,45 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	bool IsReplayModeRequested() const;
+	bool EnsureReplayVehicleActor();
+	UTrajectoryReplayComponent* FindOrCreateReplayComponent();
+
 	void PrepareReplayActor();
+	void ConnectGeoHudToReplayVehicle();
+
 	FString ResolveReplayCsvPath() const;
 	FString FindLatestReplayCsv() const;
 
+	void ScreenMsg(const FString& Message, const FColor& Color = FColor::Yellow) const;
+
 private:
-	UPROPERTY(EditAnywhere, Category="Replay")
+	UPROPERTY(EditAnywhere, Category="Replay|Mode")
+	bool bOnlyRunInReplayMode = true;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Mode")
+	FString ReplayModeOptionName = TEXT("ReplayMode");
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
+	bool bSpawnReplayVehicleAtRuntime = true;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
 	TObjectPtr<AActor> ReplayVehicleActor = nullptr;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
+	TSubclassOf<AActor> ReplayVehicleClass = nullptr;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
+	FTransform ReplayVehicleSpawnTransform = FTransform::Identity;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
+	bool bPossessReplayPawn = true;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Vehicle")
+	bool bSetCameraToReplayVehicle = true;
 
 	UPROPERTY(EditAnywhere, Category="Replay")
 	bool bAutoPlay = true;
@@ -32,14 +62,15 @@ private:
 	UPROPERTY(EditAnywhere, Category="Replay")
 	bool bDisablePhysicsAndCollision = true;
 
-	// L_Replay를 직접 실행해도 최신 CSV를 자동으로 읽기 위한 옵션
 	UPROPERTY(EditAnywhere, Category="Replay|Debug")
 	bool bUseLatestCsvIfSelectedPathIsEmpty = false;
 
-	// 직접 CSV 경로를 넣고 테스트하고 싶을 때 사용
 	UPROPERTY(EditAnywhere, Category="Replay|Debug")
 	FString TestReplayCsvPath;
 
 	UPROPERTY()
 	TObjectPtr<UTrajectoryReplayComponent> ReplayComponent = nullptr;
+
+	UPROPERTY()
+	TObjectPtr<AActor> SpawnedReplayVehicleActor = nullptr;
 };
