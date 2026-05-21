@@ -22,6 +22,7 @@ private:
 	void RefreshReplayList();
 	void UpdatePreviewPanel();
 	void HandleReplayItemClicked(UObject* ClickedItem);
+	FString BuildReplayOpenLevelOptions() const;
 
 	UFUNCTION()
 	void HandlePlayClicked();
@@ -57,8 +58,14 @@ private:
 	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> PreviewPathText = nullptr;
 
-	UPROPERTY(EditAnywhere, Category="Replay")
-	FName ReplayPlaybackLevelName = TEXT("L_Replay");
+	UPROPERTY(EditAnywhere, Category="Replay|Open Level")
+	FName ReplayPlaybackLevelName = TEXT("VehicleAdvExampleMap");
+
+	UPROPERTY(EditAnywhere, Category="Replay|Open Level")
+	bool bOpenGameplayMapAsReplayMode = true;
+
+	UPROPERTY(EditAnywhere, Category="Replay|Open Level")
+	FString ReplayOpenLevelOptions = TEXT("ReplayMode=1?game=/Game/VehicleTemplate/Blueprints/Replay/BP_GM_Replay.BP_GM_Replay_C");
 
 	UPROPERTY(EditAnywhere, Category="Replay")
 	TSubclassOf<UUserWidget> MainMenuWidgetClass;

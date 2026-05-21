@@ -24,11 +24,57 @@ namespace
 
 	bool IsSameFilePath(const FString& A, const FString& B)
 	{
+		if (A.IsEmpty() || B.IsEmpty())
+		{
+			return false;
+		}
+
 		FString NormalizedA = FPaths::ConvertRelativePathToFull(A);
 		FString NormalizedB = FPaths::ConvertRelativePathToFull(B);
 		FPaths::NormalizeFilename(NormalizedA);
 		FPaths::NormalizeFilename(NormalizedB);
 		return NormalizedA.Equals(NormalizedB, ESearchCase::IgnoreCase);
+	}
+
+	bool HasUrlOption(const FString& Options, const FString& OptionName)
+	{
+		TArray<FString> Parts;
+		Options.ParseIntoArray(Parts, TEXT("?"), true);
+
+		for (FString Part : Parts)
+		{
+			Part.TrimStartAndEndInline();
+
+			if (
+				Part.Equals(OptionName, ESearchCase::IgnoreCase) ||
+				Part.StartsWith(OptionName + TEXT("="), ESearchCase::IgnoreCase)
+			)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	FString NormalizeUrlOptions(const FString& Options)
+	{
+		TArray<FString> Parts;
+		Options.ParseIntoArray(Parts, TEXT("?"), true);
+
+		TArray<FString> CleanParts;
+		CleanParts.Reserve(Parts.Num());
+
+		for (FString Part : Parts)
+		{
+			Part.TrimStartAndEndInline();
+			if (!Part.IsEmpty())
+			{
+				CleanParts.Add(MoveTemp(Part));
+			}
+		}
+
+		return FString::Join(CleanParts, TEXT("?"));
 	}
 
 	void SetGameReplayInputMode(APlayerController* PlayerController)
@@ -194,6 +240,20 @@ void UReplaySelectWidget::HandleReplayItemClicked(UObject* ClickedItem)
 	UpdatePreviewPanel();
 }
 
+FString UReplaySelectWidget::BuildReplayOpenLevelOptions() const
+{
+	FString Options = NormalizeUrlOptions(ReplayOpenLevelOptions);
+
+	if (HasUrlOption(Options, TEXT("ReplayMode")))
+	{
+		return Options;
+	}
+
+	return Options.IsEmpty()
+		? TEXT("ReplayMode=1")
+		: FString::Printf(TEXT("ReplayMode=1?%s"), *Options);
+}
+
 void UReplaySelectWidget::UpdatePreviewPanel()
 {
 	const bool bHasExistingSelection = bHasSelection && FPaths::FileExists(SelectedReplay.FilePath);
@@ -206,14 +266,14 @@ void UReplaySelectWidget::UpdatePreviewPanel()
 
 	if (DeleteButton)
 	{
-		DeleteButton->SetIsEnabled(bCanUseReplay);
+		DeleteButton->SetIsEnabled(bHasExistingSelection);
 	}
 
 	if (!bHasExistingSelection)
 	{
 		SetTextIfValid(
 			PreviewTitleText,
-			bHasReplayFiles ? TEXT("NO REPLAY SELECTED") : TEXT("저장된 CSV가 없습니다")
+			bHasReplayFiles ? TEXT("NO REPLAY SELECTED") : TEXT("NO SAVED CSV FILES")
 		);
 		SetTextIfValid(PreviewDurationText, TEXT("-"));
 		SetTextIfValid(PreviewDateText, TEXT("-"));
@@ -256,7 +316,17 @@ void UReplaySelectWidget::HandlePlayClicked()
 	ReplaySubsystem->SetSelectedReplayPath(SelectedReplay.FilePath);
 
 	SetGameReplayInputMode(GetOwningPlayer());
-	UGameplayStatics::OpenLevel(this, ReplayPlaybackLevelName);
+
+	const FString Options = bOpenGameplayMapAsReplayMode
+		? BuildReplayOpenLevelOptions()
+		: FString();
+
+	UGameplayStatics::OpenLevel(
+		this,
+		ReplayPlaybackLevelName,
+		true,
+		Options
+	);
 }
 
 void UReplaySelectWidget::HandleDeleteClicked()
