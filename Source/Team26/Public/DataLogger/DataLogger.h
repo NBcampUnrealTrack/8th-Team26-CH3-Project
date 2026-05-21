@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Serialization/Archive.h"
 #include "DataLogger.generated.h"
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -22,10 +23,14 @@ protected:
 	
 private:
 	static int32 GetUtmZone(double Longitude);
-	static void LatLonToUtm(double Lat, double Lon, int32 Zone, double& OutEasting, double& OutNorthing);
+	static void LatLonToUtm(double Lat, double Lon, int32 Zone, double& OutEasting, double&  OutNorthing);
 	void WorldToUtm(const FVector& WorldLocation, double& OutEasting, double& OutNorthing) const;
-	void CreateCsvFile();
+	bool CreateCsvFile();
+	void CloseCsvFile();
 	void AppendRow();
+	bool WriteCsvLine(const FString& Line);
+	bool IsCurrentLevelBlocked() const;
+	void PublishLastRecordedReplayPath() const;
 
 	UFUNCTION(BlueprintCallable, Category="Data Logger")
 	void StartRecording();
@@ -46,13 +51,17 @@ private:
 		meta=(ClampMin="0.1", ClampMax="100.0", Units="Hz", AllowPrivateAccess="true"))
 	float SaveFrequencyHz = 10.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Data Logger",
+		meta=(AllowPrivateAccess="true"))
+	TArray<FName> AutoLoggingDisabledLevels = { TEXT("L_Replay") };
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Data Logger|UTM Reference",
 		meta=(ClampMin="-90.0", ClampMax="90.0", Units="deg", AllowPrivateAccess="true"))
-	double OriginLatitude = 34.733333;
+	double OriginLatitude = 37.575931;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Data Logger|UTM Reference",
 		meta=(ClampMin="-180.0", ClampMax="180.0", Units="deg", AllowPrivateAccess="true"))
-	double OriginLongitude = 126.416667;
+	double OriginLongitude = 126.973500;
 
 private:
 	double OriginUtmEasting = 0.0;
@@ -60,7 +69,9 @@ private:
 	int32 OriginUtmZone = 0;
 
 	FString CsvFilePath;
+	TUniquePtr<FArchive> CsvArchive;
 	bool bIsRecording = false;
+	int32 WrittenSampleCount = 0;
 	float TimeSinceLastSave = 0.0f;
 	float ElapsedRecordingTime = 0.0f;
 
