@@ -31,7 +31,7 @@ namespace
 		return NormalizedA.Equals(NormalizedB, ESearchCase::IgnoreCase);
 	}
 
-	void SetGameInputMode(APlayerController* PlayerController)
+	void SetGameReplayInputMode(APlayerController* PlayerController)
 	{
 		if (!PlayerController)
 		{
@@ -255,7 +255,7 @@ void UReplaySelectWidget::HandlePlayClicked()
 
 	ReplaySubsystem->SetSelectedReplayPath(SelectedReplay.FilePath);
 
-	SetGameInputMode(GetOwningPlayer());
+	SetGameReplayInputMode(GetOwningPlayer());
 	UGameplayStatics::OpenLevel(this, ReplayPlaybackLevelName);
 }
 
