@@ -42,7 +42,7 @@ namespace
 		PlayerController->SetInputMode(FInputModeGameOnly());
 	}
 
-	void SetMenuInputMode(APlayerController* PlayerController, UUserWidget* WidgetToFocus)
+	void SetReplaySelectInputMode(APlayerController* PlayerController, UUserWidget* WidgetToFocus)
 	{
 		if (!PlayerController || !WidgetToFocus)
 		{
@@ -86,7 +86,7 @@ void UReplaySelectWidget::NativeConstruct()
 		BackButton->OnClicked.AddDynamic(this, &UReplaySelectWidget::HandleBackClicked);
 	}
 
-	SetMenuInputMode(GetOwningPlayer(), this);
+	SetReplaySelectInputMode(GetOwningPlayer(), this);
 	RefreshReplayList();
 	UpdatePreviewPanel();
 }
@@ -308,5 +308,5 @@ void UReplaySelectWidget::HandleBackClicked()
 
 	RemoveFromParent();
 	MainWidget->AddToViewport(100);
-	SetMenuInputMode(PC, MainWidget);
+	SetReplaySelectInputMode(PC, MainWidget);
 }

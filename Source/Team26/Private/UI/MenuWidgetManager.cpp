@@ -8,7 +8,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogMenuWidgetManager, Log, All);
 
 namespace
 {
-	void SetMenuInputMode(APlayerController* PlayerController, UUserWidget* WidgetToFocus)
+	void  SetMenuWidgetInputMode(APlayerController* PlayerController, UUserWidget* WidgetToFocus)
 	{
 		if (!PlayerController || !WidgetToFocus)
 		{
@@ -54,5 +54,5 @@ void AMenuWidgetManager::BeginPlay()
 	}
 
 	CurrentWidget->AddToViewport(100);
-	SetMenuInputMode(PC, CurrentWidget);
+	SetMenuWidgetInputMode(PC, CurrentWidget);
 }
