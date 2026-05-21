@@ -147,4 +147,14 @@ private:
 	// 경고 판단을 위한 전방 각도 범위
 	UPROPERTY(EditAnywhere, Category = "LidarSensor|Safety")
 	float ForwardWarningAngle = 60.0f;
+	
+	// 디버그 콜리전, ID 텍스트 ON/OFF
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|Debug", meta = (DisplayName = "Show 3D Bounding Box"))
+	bool bShowDebugBox = false;      // 3D 오렌지 상자 표시 여부
+
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|Debug", meta = (DisplayName = "Show ID Label"))
+	bool bShowDebugString = false;   // ID 및 포인트 개수 텍스트 표시 여부
+
+	UPROPERTY(EditAnywhere, Category = "LidarSensor|Debug", meta = (DisplayName = "Debug Drawing Life Time"))
+	float DebugLifeTime = 0.05f;    // 디버그 드로잉 잔상 시간 (초 단위)
 };

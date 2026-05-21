@@ -355,29 +355,37 @@ void ULidarSensorComponent::CollectAsyncResults()
 			FVector Extent = Obj.BoundingBox.GetExtent();
 
 			// 3D 바운딩 박스 드로잉
-			DrawDebugBox(
-				GetWorld(),
-				Center,
-				Extent,
-				FColor::Orange, // 검출된 물체는 오렌지색
-				false,          // 영구 지속 안함
-				0.05f,          // 수명 (프레임 단위 갱신을 위해 짧게 유지)
-				0,              // 우선순위
-				2.0f            // 선 두께
-			);
+			if (bShowDebugBox)
+			{
+				DrawDebugBox(
+					GetWorld(),
+					Center,
+					Extent,
+					FColor::Orange, // 검출된 물체는 오렌지색
+					false,          // 영구 지속 안함
+					DebugLifeTime,  // 수명 (프레임 단위 갱신을 위해 짧게 유지)
+					0,              // 우선순위
+					2.0f            // 선 두께
+				);
+			}
+			
 
 			// 물체 중심점 상단에 ID 및 포인트 개수 텍스트 띄우기
-			FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 20.f);
-			DrawDebugString(
-				GetWorld(), 
-				TextLocation, 
-				FString::Printf(TEXT("ID: %d (Pts: %d)"), Obj.Id, Obj.Points.Num()), 
-				nullptr, 
-				FColor::White, 
-				0.05f, 
-				false, 
-				1.1f
-			);
+			if (bShowDebugString)
+			{
+				FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 20.f);
+				DrawDebugString(
+					GetWorld(), 
+					TextLocation, 
+					FString::Printf(TEXT("ID: %d (Pts: %d)"), Obj.Id, Obj.Points.Num()), 
+					nullptr, 
+					FColor::White, 
+					DebugLifeTime, 
+					false, 
+					1.1f
+				);
+			}
+		
 		}
 	}
 	
