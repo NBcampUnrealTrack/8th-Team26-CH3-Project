@@ -348,14 +348,15 @@ void ULidarSensorComponent::CollectAsyncResults()
 		// 라이브러리를 정적(Static) 호출하여 물체 분리 및 바운딩 박스 계산
 		TArray<FDetectedObject> RawObjects  = ULidarClusterer::PerformDBSCAN(LastPointCloud.Points, DbscanEpsilon, DbscanMinPoints);
 
-		// [박스 병합 적용] 0.4m(40.f) 이내로 가까운 상자들은 하나로 합치기
-		TArray<FDetectedObject> DetectedObjects = MergeCloseBoxes(RawObjects, 40.0f);
+		// 2. [Z축 한정 병합 적용] 수직으로 200cm 이내로 층층이 쌓인 상자들을 위아래로 묶어 기둥으로 만들기
+		TArray<FDetectedObject> DetectedObjects = MergeCloseBoxesZOnly(RawObjects, 200.0f);
 		
 		// 프로젝트에 배치된 장애물들의 측정값 범위를 리스트로 등록 (장애물이 추가되면 여기에 추가하면됨.)
 		static const TArray<FLidarClassificationRule> ClassRules = {
-			{ TEXT("Cone/Drum"),  50.f,  120.f,  0.f },    // 높이 50~120cm 사이의 서 있는 오브젝트
-			{ TEXT("Barricade"),  80.f,  120.f,  120.f },  // 높이 80~120cm이면서 가로로 긴(120cm 이상) 오브젝트
-			{ TEXT("Big Truck"),  180.f, 500.f,  200.f }   // 높이 1.8m 이상의 거대 오브젝트
+			{ TEXT("Dummy"),      140.f,  190.f,   0.f },  // 가로폭 제한은 풀고(0.f), 높이가 140cm ~ 190cm 사이인 날씬한 기둥 모양은 무조건 마네킹으로 분류.
+			{ TEXT("Barricade"),  50.f,  200.f,  60.f }, 
+			{ TEXT("Cone"),  40.f,  120.f,  0.f },
+			{ TEXT("Big Vehicle"),  180.f, 500.f,  200.f }   // 높이 1.8m 이상의 거대 오브젝트
 		};
 		
 		// 분리된 물체들을 순회하며 3D 뷰포트에 오렌지색 상자 그리기
@@ -383,6 +384,12 @@ void ULidarSensorComponent::CollectAsyncResults()
 				}
 			}
 			
+			// [필터] 트랙 주변 절벽이나 거대 빌딩 노이즈 차단
+			if (SizeX > 500.0f || SizeY > 500.0f || SizeZ > 500.0f)
+			{
+				continue; // 상자와 텍스트를 그리지 않고 다음 물체로 넘어감
+			}
+			
 			// 차량으로부터 물체 중심까지의 거리 계산.
 			FVector SensorLocation = GetComponentLocation();
 			// cm 단위를 미터(m) 단위로 변환하기 위해 100.0f로 나눈다.
@@ -407,12 +414,12 @@ void ULidarSensorComponent::CollectAsyncResults()
 			// 물체 중심점 상단에 ID 및 포인트 개수 텍스트 띄우기
 			if (bShowDebugString)
 			{
-				FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 20.f);
+				FVector TextLocation = Center + FVector(0.f, 0.f, Extent.Z + 100.f);
 				
 				// "물체종류 거리m (포인트수)" 형태로 문자열 포맷팅
 				// %.1f를 쓰면 소수점 첫째 짜리까지만 출력됨 (예: 12.4m)
 				FString DisplayText = FString::Printf(
-					TEXT("%s %.1fm"), 
+					TEXT("%s\n%.1fm"), 
 					*ObjectType, 
 					DistanceInMeters
 				);
@@ -424,7 +431,7 @@ void ULidarSensorComponent::CollectAsyncResults()
 					FColor::White, 
 					DebugLifeTime, 
 					false, 
-					1.1f
+					1.3f
 				);
 			}
 		
@@ -516,53 +523,87 @@ void ULidarSensorComponent::RebuildDirectionCache()
 	bDirectionsDirty = false;
 }
 
-TArray<FDetectedObject> ULidarSensorComponent::MergeCloseBoxes(const TArray<FDetectedObject>& SrcObjects,
-	float MergeDistanceThreshold)
+TArray<FDetectedObject> ULidarSensorComponent::MergeCloseBoxesZOnly(const TArray<FDetectedObject>& SrcObjects, float ZThreshold)
 {
-	if (SrcObjects.Num() <= 1) return SrcObjects;
+    if (SrcObjects.Num() <= 1) return SrcObjects;
 
-	TArray<FDetectedObject> MergedList = SrcObjects;
-	bool bMadeMarqe = true;
+    TArray<FDetectedObject> MergedList = SrcObjects;
+    bool bMadeMerge = true;
+    int32 LoopSanityCheck = 0;
 
-	// 더 이상 합쳐질 박스가 없을 때까지 반복 검사 (Weld 작업)
-	while (bMadeMarqe)
-	{
-		bMadeMarqe = false;
-		TArray<FDetectedObject> TempList;
-		TSet<int32> SkipIndices;
+    // 더 이상 Z축으로 합쳐질 상자가 없을 때까지 반복
+    while (bMadeMerge && LoopSanityCheck < 10)
+    {
+        LoopSanityCheck++;
+        bMadeMerge = false;
+        TArray<FDetectedObject> TempList;
+        TSet<int32> SkipIndices;
 
-		for (int32 i = 0; i < MergedList.Num(); ++i)
-		{
-			if (SkipIndices.Contains(i)) continue;
+        for (int32 i = 0; i < MergedList.Num(); ++i)
+        {
+            if (SkipIndices.Contains(i)) continue;
 
-			FDetectedObject Current = MergedList[i];
+            FDetectedObject Current = MergedList[i];
 
-			for (int32 j = i + 1; j < MergedList.Num(); ++j)
-			{
-				if (SkipIndices.Contains(j)) continue;
+            for (int32 j = i + 1; j < MergedList.Num(); ++j)
+            {
+                if (SkipIndices.Contains(j)) continue;
 
-				// 두 박스 사이의 가장 가까운 최단 거리 계산 (언리얼 내장 함수)
-				float BoxDistance = Current.BoundingBox.ComputeSquaredDistanceToBox(MergedList[j].BoundingBox);
+                // 우선 두 상자가 평면(X, Y)상에서 같은 위치에 있는지 체크.
+                // 중심점의 X, Y 거리가 너무 멀면 아예 다른 위치의 장애물이므로 패스.
+                float DistX = FMath::Abs(Current.BoundingBox.GetCenter().X - MergedList[j].BoundingBox.GetCenter().X);
+                float DistY = FMath::Abs(Current.BoundingBox.GetCenter().Y - MergedList[j].BoundingBox.GetCenter().Y);
+                
+            	//  두 대상의 원래 가로/세로 크기(체급)를 먼저 파악. 
+            	//  가로, 세로뿐만 아니라 높이(Z축)까지 포함하여 상자의 3축 중 가장 큰 길이를 체급 기준으로 잡음.
+            	float CurrentMaxDim = Current.BoundingBox.GetSize().GetMax();
+            	float TargetMaxDim = MergedList[j].BoundingBox.GetSize().GetMax();
 
-				// 지정한 병합 거리(예: 150cm = 1.5m)보다 가깝다면 합치기!
-				if (BoxDistance < FMath::Square(MergeDistanceThreshold))
-				{
-					// Current 박스에 j번째 박스의 영역을 누적 합산(AABB 확장)
-					Current.BoundingBox += MergedList[j].BoundingBox;
+            	// 기본 수평 허용치 (드럼통, 콘 같은 작은 물체용은 80cm로 제한)
+            	float DynamicHorizontalThreshold = 80.0f;
 
-					// 내부 포인트 개수도 합쳐줌
-					Current.Points.Append(MergedList[j].Points);
+            	// 만약 두 상자 중 하나라도 이미 가로/세로/높이 크기중 하나가 2m(200cm)를 넘으면 대형 물체로 판단,
+            	// 수평 허용치를 250cm(2.5m)로 크게 열어준다.
+            	if (CurrentMaxDim > 250.0f || TargetMaxDim > 250.0f)
+            	{
+            		DynamicHorizontalThreshold = 250.0f;
+            	}
 
-					SkipIndices.Add(j);
-					bMadeMarqe = true; // 합쳐졌으므로 루프 재진행 마킹
-				}
-			}
-			TempList.Add(Current);
-		}
-		MergedList = TempList;
-	}
+            	// 유동적으로 결정된 허용치를 적용하여 필터링
+            	if (DistX > DynamicHorizontalThreshold || DistY > DynamicHorizontalThreshold) 
+            	{
+            		continue; // 이 범위를 벗어나면 병합하지 않고 스킵
+            	}
 
-	return MergedList;
+                // 두 상자의 Z축(높이) 정렬 상태를 계산.
+                // 상자 A의 아랫면과 상자 B의 윗면 사이의 순수 수직 거리를 구한다.
+                float MaxZ1 = Current.BoundingBox.Max.Z;
+                float MinZ1 = Current.BoundingBox.Min.Z;
+                float MaxZ2 = MergedList[j].BoundingBox.Max.Z;
+                float MinZ2 = MergedList[j].BoundingBox.Min.Z;
+
+                // 두 박스가 수직으로 얼마나 떨어져 있는지 계산 (음수면 이미 겹쳐있다는 뜻)
+                float VerticalDistance = FMath::Max(MinZ1 - MaxZ2, MinZ2 - MaxZ1);
+
+                // 수직 거리가 지정한 임계값보다 가까우면 층층이 쌓인 박스로 판단하고 병합
+                if (VerticalDistance < ZThreshold)
+                {
+                    // 두 오브젝트의 흩어진 정점들을 하나로 합친다.
+                    Current.Points.Append(MergedList[j].Points);
+                    
+                    // 합쳐진 정점들을 기준으로 상자의 두께(Z축 포함)를 온전하게 새로 그린다.
+                    Current.BoundingBox = FBox(Current.Points);
+                    
+                    SkipIndices.Add(j);
+                    bMadeMerge = true;
+                }
+            }
+            TempList.Add(Current);
+        }
+        MergedList = TempList;
+    }
+
+    return MergedList;
 }
 
 
