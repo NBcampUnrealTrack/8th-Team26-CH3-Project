@@ -150,7 +150,7 @@ private:
 	float ForwardWarningAngle = 60.0f;
 	
 	// DBSCAN 결과를 받아서 가까운 객체끼리 상자를 합쳐주는 후처리 함수
-	TArray<FDetectedObject> MergeCloseBoxes(const TArray<FDetectedObject>& SrcObjects, float MergeDistanceThreshold);
+	TArray<FDetectedObject> MergeCloseBoxesZOnly(const TArray<FDetectedObject>& SrcObjects, float ZThreshold);
 	
 public:
 	// 디버그 콜리전, ID 텍스트 ON/OFF
