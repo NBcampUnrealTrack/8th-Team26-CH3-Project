@@ -16,11 +16,11 @@ protected:
 	virtual float ComputeExtraSteer() const override;
 
 private:
-	// [추가] [강민서] 회피 시작 거리 (기본 1000cm = 10m)
+	// [추가] [강민서] 회피 시작 거리
 	UPROPERTY(EditAnywhere, Category = "LidarAvoid")
-	float AvoidDistance = 1000.f;
+	float AvoidDistance = 1500.f;
 
-	// [추가] [강민서] 회피 조향 강도 (기본 0.5)
+	// [추가] [강민서] 회피 조향 강도
 	UPROPERTY(EditAnywhere, Category = "LidarAvoid")
-	float AvoidSteerStrength = 0.5f;
+	float AvoidSteerStrength = 0.6f;
 };
