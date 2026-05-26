@@ -588,11 +588,11 @@ void USplineFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	/////////////////////////////////////////////////////////////////////////////////////
 	// 속도 명령
 	
-	// 속도제한. 현재 코너와 다가올 코너 중 더 느린 속도 선택
-	// 둘다 직선이면 거의 MaxSpeed
-	const float SpeedLimit = FMath::Min(
+	// 속도제한. 현재 코너 / 다가올 코너 / 자식의 추가 캡(예: ACC) 중 가장 느린 값 선택
+	const float SpeedLimit = FMath::Min3(
 		ComputeCurveSpeedLimit(CurvHere),
-		ComputeCurveSpeedLimit(CurvAhead)
+		ComputeCurveSpeedLimit(CurvAhead),
+		GetExtraSpeedCap()
 	);
 
 	// 목표 속도 부드럽게 변화 (정지 -> 출발 경우 AccelRate, 곡선 진입 DecelRate)

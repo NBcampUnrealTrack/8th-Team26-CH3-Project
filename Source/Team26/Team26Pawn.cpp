@@ -125,10 +125,10 @@ void ATeam26Pawn::Tick(float Delta)
 	}
 
 	//[강민서] 자율주행 기본 전진
-	if (bAutoDrive && !bIsResetting)
+	/*if (bAutoDrive && !bIsResetting)
 	{
 		DoThrottle(0.7f);
-	}
+	}*/
 
 	// [추가] [강민서] 전복 감지 (복구 중 아닐 때만)
 	if (!bIsResetting)
@@ -266,6 +266,12 @@ void ATeam26Pawn::BeginPlay()
 	{
 		LidarSensor->StartScan();
 		UE_LOG(LogTemp, Warning, TEXT("Lidar Scan Started in Pawn BeginPlay (%s)"), *GetName());
+	}
+
+	// [백종태] 카메라 캡쳐 활성화 — 기본 false, 플레이어 차에서만 true
+	if (GetCameraSensor())
+	{
+		GetCameraSensor()->SetSensorEnabled(bAutoStartCamera);
 	}
 
 	// UI 셋업 — 플레이어 차만 (PC 있을 때)
