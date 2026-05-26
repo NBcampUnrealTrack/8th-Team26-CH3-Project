@@ -43,6 +43,14 @@ protected:
 	// 자식 클래스가 기본 스티어에 추가로 더할 보정값(예: 라이다 회피)을 반환. 기본 0.
 	virtual float ComputeExtraSteer() const { return 0.f; }
 
+	// 자식 클래스가 속도 상한을 추가로 적용 (예: ACC 앞차 추종 감속).
+	// SpeedLimit 계산 시 곡률 기반 속도 한도와 함께 min 으로 합쳐짐. 기본 = 무한대 (영향 없음).
+	virtual float GetExtraSpeedCap() const { return TNumericLimits<float>::Max(); }
+
+public:
+	// 자식 클래스가 부모의 MaxSpeed 를 읽을 수 있게 (ACC 등에서 비례 계산용)
+	FORCEINLINE float GetMaxSpeed() const { return MaxSpeed; }
+
 private:
 	// 맵에서 LandscapeSpline찾아 점 목록 만듦 (한번만)
 	void    BuildPath();
@@ -131,7 +139,7 @@ private:
 	// 차 주변 SearchRadius 안에서 가장 가까운 스플라인 점 찾기 (기본 50m)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
 		meta=(AllowPrivateAccess="true"))
-	float SearchRadius = 5000.f;
+	float SearchRadius = 50000.f;
 	// Catmull-Rom 으로 점 채울때 간격 (기본 50cm마다 한점)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SplineFollower|Path",
 		meta=(AllowPrivateAccess="true"))

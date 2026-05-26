@@ -85,9 +85,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AutoDrive")
 	bool bAutoDrive = true;
 
-	// [백종태] BeginPlay 시 라이다 자동 스캔 여부. BP 인스턴스에서 끄면 해당 차량은 라이다 안 켬.
+	// [백종태] BeginPlay 시 라이다 자동 스캔 여부. 기본 false — 회피 차량 BP 에서만 true 로 켬.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sensor")
-	bool bAutoStartLidar = true;
+	bool bAutoStartLidar = false;
+
+	// [백종태] BeginPlay 시 카메라 캡쳐 자동 시작 여부. 기본 false — 플레이어 차량 BP 에서 true 로 켬.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sensor")
+	bool bAutoStartCamera = false;
 	
 	//[강민서] 충돌 후 자동 복구
 	void RecoverVehicle();

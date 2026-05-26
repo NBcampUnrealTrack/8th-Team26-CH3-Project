@@ -19,10 +19,14 @@ class TEAM26_API UCameraSensorComponent : public USceneComponent
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	UCameraSensorComponent();
-	
+
 	UTextureRenderTarget2D* GetRenderTarget() const { return RenderTarget;}
+
+	// [백종태] 외부에서 캡쳐 활성/비활성 제어. Pawn 의 bAutoStartCamera 토글에서 호출.
+	UFUNCTION(BlueprintCallable, Category = "CameraSensor")
+	void SetSensorEnabled(bool bEnabled);
 
 protected:
 	virtual void OnRegister() override;

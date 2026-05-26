@@ -59,6 +59,19 @@ void UCameraSensorComponent::PostEditChangeProperty(FPropertyChangedEvent& Prope
 #endif
 
 
+void UCameraSensorComponent::SetSensorEnabled(bool bEnabled)
+{
+	bSensorEnabled = bEnabled;
+	if (bSensorEnabled)
+	{
+		StartCaptureTimer();
+	}
+	else
+	{
+		StopCaptureTimer();
+	}
+}
+
 void UCameraSensorComponent::ApplyPreset(ECameraSensorPreset NewPreset)
 {
 	Preset = NewPreset;
